@@ -124,12 +124,14 @@ function Dashboard() {
         >
           Editar Menú
         </Link>
-        <Link
-          to="/menu/bistro-andino"
+        <a
+          href="/demo/bistro-andino.html"
+          target="_blank"
+          rel="noreferrer"
           className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
         >
           Ver Menú Público
-        </Link>
+        </a>
         <Link
           to="/subscription"
           className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"

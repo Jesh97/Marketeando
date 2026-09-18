@@ -181,7 +181,9 @@ function Hero() {
             Comenzar Gratis
           </Link>
           <a
-            href="#"
+            href="/demo/bistro-andino.html"
+            target="_blank"
+            rel="noreferrer"
             className="flex items-center gap-2 rounded-md border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <PlayIcon />

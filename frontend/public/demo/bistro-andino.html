@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bistro Andino - Menú Digital QR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              navy: '#0B1C30',
+              navyLight: '#152C48',
+              navyCard: '#10243C',
+              terracotta: '#FD761A',
+              terracottaHover: '#E5630B',
+              mustard: '#E8A317',
+              turquoise: '#18A2B8',
+              surface: '#F8FAFC',
+              cardBg: '#FFFFFF',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .chakana-pattern {
+      background-image: radial-gradient(rgba(253, 118, 26, 0.12) 1px, transparent 1px);
+      background-size: 16px 16px;
+    }
+    .active-nav-tab {
+      background-color: #FD761A;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(253, 118, 26, 0.28);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex justify-center min-h-screen">
+
+  <!-- Back to site link (this demo opens in its own tab, outside the app's router) -->
+  <a href="/" class="fixed top-3 left-3 z-40 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm border border-slate-200 shadow-md text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-white transition-colors">
+    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+    Volver al sitio
+  </a>
+
+  <!-- Mobile Viewport Container (390px mobile-first) -->
+  <main class="w-full max-w-[390px] bg-slate-50 min-h-screen flex flex-col shadow-2xl relative overflow-x-hidden pb-12 border-x border-slate-200">
+
+    <!-- Top Utility & WiFi / QR Mesa Header -->
+    <header class="bg-brand-navy text-white px-4 pt-3.5 pb-2 text-xs flex justify-between items-center border-b border-brand-navyLight">
+      <div class="flex items-center gap-1.5 font-medium tracking-wide text-slate-300">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Mesa 04 &bull; Salón Principal</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="bg-brand-navyLight px-2 py-0.5 rounded text-[11px] font-medium text-amber-300 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[13px]">wifi</span>
+          WiFi: BistroGuest
+        </span>
+        <button class="text-slate-300 hover:text-white transition-colors" aria-label="Idioma">
+          <span class="bg-brand-navyCard px-1.5 py-0.5 rounded text-[10px] font-semibold border border-slate-700">ES</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero / Restaurant Profile Banner -->
+    <div class="bg-brand-navy text-white relative px-5 pt-5 pb-6 chakana-pattern border-b border-slate-200">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <!-- Stepped pyramid / Chakana subtle badge -->
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-navyLight border border-brand-terracotta/40 text-[11px] font-semibold tracking-wide text-brand-mustard uppercase mb-2">
+            <svg class="w-3 h-3 text-brand-terracotta fill-current" viewBox="0 0 24 24">
+              <path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5V2z"/>
+            </svg>
+            Gastronomía de Origen
+          </div>
+          <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            Bistro Andino
+          </h1>
+          <p class="text-xs text-slate-300 font-normal mt-0.5">
+            Cocina peruana contemporánea &bull; Fusión viva
+          </p>
+        </div>
+
+        <!-- Logo / Icon -->
+        <div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-brand-terracotta to-amber-600 p-0.5 shadow-lg shrink-0">
+          <div class="w-12 h-12 rounded-[14px] bg-brand-navy flex items-center justify-center text-brand-terracotta font-extrabold text-xl shadow-inner border border-amber-500/30">
+            <span class="tracking-tighter">BA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Info Meta Pills -->
+      <div class="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap gap-2 text-[11px] text-slate-300">
+        <div class="flex items-center gap-1 bg-brand-navyLight/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+          <span class="material-symbols-outlined text-[13px] text-brand-turquoise">schedule</span>
+          <span>Lun - Dom: 12:30 - 23:00</span>
+        </div>
+        <div class="flex items-center gap-1 bg-brand-navyLight/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+          <span class="material-symbols-outlined text-[13px] text-brand-terracotta">location_on</span>
+          <span>Av. La Mar 1285, Miraflores</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Dietary & Notification Notice Bar -->
+    <div class="bg-amber-50 px-4 py-2 border-b border-amber-200/70 flex items-center justify-between text-xs text-amber-900">
+      <div class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-amber-600 text-sm">info</span>
+        <span class="font-medium text-[11.5px]">Carta actualizada en vivo desde cocina</span>
+      </div>
+      <span class="text-[10.5px] font-semibold text-brand-terracotta bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+        1 plato agotado
+      </span>
+    </div>
+
+    <!-- Sticky Category Navigation Bar -->
+    <nav class="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-3 py-2.5 border-b border-slate-200 shadow-sm">
+      <div class="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+        <a href="#entradas" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap active-nav-tab transition-all">
+          Entradas
+        </a>
+        <a href="#fuertes" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Platos Fuertes
+        </a>
+        <a href="#bebidas" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Bebidas & Cócteles
+        </a>
+        <a href="#postres" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Postres
+        </a>
+      </div>
+    </nav>
+
+    <!-- Menu Content Body -->
+    <div class="px-4 py-4 space-y-6">
+
+      <!-- CATEGORÍA 1: ENTRADAS -->
+      <section id="entradas" class="scroll-mt-14">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-4 bg-brand-terracotta rounded-full"></span>
+            <h2 class="text-base font-bold text-brand-navy tracking-tight uppercase text-[13px]">
+              Entradas & Clásicos
+            </h2>
+          </div>
+          <span class="text-[11px] font-medium text-slate-500">2 selecciones</span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Dish 1: Ceviche Clásico -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 relative">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmW_uMZbsfiEzb9oXsD3ACYI8U39yOu9-CchXSCSaM13llsifRv2625hsw0ntnHXAQvO8UkZ1bR96L1DJOjIWOjyptSfzHwDPPbNLq6DlGMj0JqdCrhA4spLDwVdg9-iPIKxoOQEhOUfvYO937jLlI_XFysx18Ii2lWwql9XXfHe5TUApC4zdM78PBkltGtbMVthXrF_xqobOBwmxXkOP1MDinXgsC5iuPmJEquuOH2L_oIxbLCErQ" alt="Ceviche Clásico Andino" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <span class="absolute top-1.5 left-1.5 bg-brand-navy/85 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded text-center">
+                Top Venta
+              </span>
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <div class="flex items-start justify-between gap-1">
+                  <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                    Ceviche Clásico Andino
+                  </h3>
+                </div>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Corvina silvestre curada, leche de tigre al ají limo y maíz cancha crocante.
+                </p>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <span class="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    Gluten Free
+                  </span>
+                  <span class="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    Picante medio
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 48.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-slate-500">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Dish 2: Causa Limeña de Cangrejo -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 relative">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0xGhLn3w-gk8rWevUyIn6-rea8kF4VOtaIK9tI0lImW4eIwcRpOyBtY3YuFxMlVAAdup-g5DmU22UjpUtS4WH3w7nrAh4Qoge1uKBntSnBZsHHDmi1xpT7SNx9CHwqKCOhsgyp8vwG7CUBvcHxCZFjQDtJQcV04aLm70PJIzDABAYMMHyKz_1ktE-v7seuIVbLshT2SPuJPrxVM4feJqzeKEg88kQROLOpj9eBZ7tRYFIIhVR8HMe" alt="Causa Limeña de Cangrejo" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                  Causa Limeña de Cangrejo
+                </h3>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Papa amarilla prensada al ají amarillo, pulpa de cangrejo fresco y palta fuerte.
+                </p>
+                <div class="flex items-center gap-1 mt-1.5">
+                  <span class="text-[10px] font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                    Mariscos
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 42.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-slate-500">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- CATEGORÍA 2: PLATOS FUERTES -->
+      <section id="fuertes" class="scroll-mt-14">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-4 bg-brand-terracotta rounded-full"></span>
+            <h2 class="text-base font-bold text-brand-navy tracking-tight uppercase text-[13px]">
+              Platos Fuertes & Wok
+            </h2>
+          </div>
+          <span class="text-[11px] font-medium text-slate-500">2 selecciones</span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Dish 3: Lomo Saltado Criollo -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 relative">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuB669qB9Be25PGrh8zt5ncYik-GZCL-9Swekz0Di0WYqZ5bpfo5ATcrpSrKjF50ktGUHPKY8CPkZBRVvcfCrKHFNbR5HRKFR-NllGmATlNQ5_efvdSX8TApA4huhaFvqZzaVk009OHJ_taop0dm7U_vdEYLhOrtPdwSD_HiJqMCDxedjSsb8kaAr7ufhq6wDAesjwMsjHr6HcDKfrfpyMDfJhFRUlR68qwUrr_Ccdnic53U6xK56rL1" alt="Lomo Saltado Criollo al Wok" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <span class="absolute top-1.5 left-1.5 bg-brand-terracotta text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                Especialidad
+              </span>
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                  Lomo Saltado Criollo
+                </h3>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Lomo fino flambeado al pisco, cebolla morada, papas nativas crocantes y arroz.
+                </p>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <span class="text-[10px] font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                    Al Wok
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 58.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-emerald-600 font-semibold">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Dish 4: Pulpo a la Brasa (PLATO AGOTADO DEMO) -->
+          <article class="bg-slate-50/90 rounded-2xl p-3 border border-slate-200/80 shadow-none flex gap-3 relative overflow-hidden opacity-65 cursor-not-allowed select-none">
+            <!-- Badge overlay AGOTADO -->
+            <div class="absolute top-2 right-2 z-10">
+              <span class="inline-flex items-center gap-1 bg-red-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                <span class="material-symbols-outlined text-[12px]">do_not_disturb_on</span>
+                Agotado hoy
+              </span>
+            </div>
+
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-200 relative grayscale contrast-75">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPqZXRujeRFFOJJV5xyEsh5YmtDohInQoSh0i5TEyxlLPBzL0lh9wElFgEQEBTfiBXuKozCwCahQ3LZBrof914L0vOdZQ2e6G6v-i3ICD5VtFC6bxAivRmwlYgEu_H6YyF365lA0IDXCLK78ByZx3CyKfvS6ml5sVO6_TRKeRgqam_FxXsFfaEFv2Ubcg60LPDfy-I7ljwyM2yudBbgvv3wlRRHT17c5Fr84Qi6OWa0ePQ7AQj2s3s" alt="Pulpo a la Brasa - Agotado" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-slate-900/40 flex items-center justify-center">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-white bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/30">
+                  Sin Stock
+                </span>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-500 text-sm leading-snug line-through decoration-red-400">
+                  Pulpo a la Brasa Anticuchero
+                </h3>
+                <p class="text-[11.5px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                  Tientas marinadas en ají panca, papines dorados y chimichurri andino.
+                </p>
+                <div class="mt-1.5">
+                  <span class="text-[10.5px] text-red-600 font-medium italic">
+                    Restock en servicio de mañana
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-200">
+                <span class="font-bold text-slate-400 text-sm line-through">
+                  S/ 56.00
+                </span>
+                <span class="text-[10.5px] font-semibold text-slate-400">
+                  No disponible
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- CATEGORÍA 3: BEBIDAS -->
+      <section id="bebidas" class="scroll-mt-14">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-4 bg-brand-terracotta rounded-full"></span>
+            <h2 class="text-base font-bold text-brand-navy tracking-tight uppercase text-[13px]">
+              Bebidas & Coctelería de Autor
+            </h2>
+          </div>
+          <span class="text-[11px] font-medium text-slate-500">2 selecciones</span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Dish 5: Pisco Sour Catedral -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 relative">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0npu2A_pYccxcggsvdpubUkE1tJfdi8GlS0ikdv7QK3wofY-Dp4XDUQn9N3vdElZo2_N714xMWEKtNZxqWiw_OBBgGWke_kVrfSmUr2XDyjH9Fig0Wk4r04hB5f99QvHkF2n_ktVWoOgLlaRBHw2-5_hC5EQf0_B6DzgxDMBI2LaBYKe_4tWsaBk0qywdptiQ6Myq_uSFGOpPZ2Z6IpCjMHBhrBFrfq5Y2TBZTON9zEhKgjdT1Zg0" alt="Pisco Sour Catedral" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <span class="absolute top-1.5 left-1.5 bg-brand-mustard text-brand-navy text-[9px] font-extrabold px-1.5 py-0.5 rounded">
+                Clásico
+              </span>
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                  Pisco Sour Catedral
+                </h3>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Pisco Quebranta 4 fundos, zumo de limón de Chulucanas y espuma aromática.
+                </p>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    Copa Catedral 12 oz
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 34.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-slate-500">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Dish 6: Chicha Morada Artesanal (Bloque de Color & Vector Icon) -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-purple-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center text-white relative p-2 shadow-inner">
+              <span class="material-symbols-outlined text-3xl text-purple-300">local_cafe</span>
+              <span class="text-[9px] font-bold tracking-wider uppercase text-purple-200 mt-1">100% Maíz</span>
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                  Chicha Morada de la Casa
+                </h3>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Maíz morado culli hervido con membrillo, cáscara de piña y canela andina.
+                </p>
+                <div class="flex items-center gap-1 mt-1.5">
+                  <span class="text-[10px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                    Sin Alcohol &bull; Jarra 1L
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 22.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-slate-500">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- CATEGORÍA 4: POSTRES -->
+      <section id="postres" class="scroll-mt-14">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-4 bg-brand-terracotta rounded-full"></span>
+            <h2 class="text-base font-bold text-brand-navy tracking-tight uppercase text-[13px]">
+              Postres & Dulce Tradición
+            </h2>
+          </div>
+          <span class="text-[11px] font-medium text-slate-500">1 selección</span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Dish 7: Cheesecake de Maracuyá -->
+          <article class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex gap-3 relative overflow-hidden group">
+            <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 relative">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_joub1RCeNPKn_0u4oowqpgOiRUjbQ-jy5KDDmwo9qdzKkeGcLpipHVOMiZMPcy8p8NOGJIsFJr9mj7uPTgVxhtyWEiLorxVEXALoo-Zv7cZgLWbPyEl9nLEC5xpCDW0umQVixgkE5L8SqTpP3Bbdh0VtWZzYFqPn9YP_lzpOrrvuFb9fL5l_ihax2MJMI4AoGSHerdGduE0shVSOg6MMHuHaQ3u1z-Q1vpDrVWaDlcAMXtr_8Z-h" alt="Cheesecake de Maracuyá" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <span class="absolute top-1.5 left-1.5 bg-brand-terracotta text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                Recomendado
+              </span>
+            </div>
+            <div class="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug">
+                  Cheesecake de Maracuyá
+                </h3>
+                <p class="text-[11.5px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                  Coulis brillante de fruta de la pasión de la selva central sobre base crujiente.
+                </p>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <span class="text-[10px] font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                    Artesanal
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                <span class="font-black text-brand-navy text-sm">
+                  S/ 26.00
+                </span>
+                <span class="inline-flex items-center text-[10.5px] font-medium text-slate-500">
+                  Disponible
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Botón Solicitud de Asistencia en Mesa -->
+      <div class="pt-2">
+        <button class="w-full bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-semibold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors active:scale-[0.99]">
+          <span class="material-symbols-outlined text-brand-terracotta text-base">notifications_active</span>
+          Llamar al mozo o solicitar la cuenta (Mesa 04)
+        </button>
+      </div>
+
+    </div>
+
+    <!-- FOOTER: Azul marino oscuro (#0B1C30) con contactos y redes -->
+    <footer class="bg-brand-navy text-white px-5 pt-7 pb-8 mt-6 border-t border-brand-navyLight">
+
+      <!-- Logo & Brand statement -->
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-7 h-7 rounded-lg bg-brand-terracotta flex items-center justify-center text-white font-extrabold text-xs">
+          BA
+        </div>
+        <span class="font-bold tracking-tight text-white text-base">Bistro Andino</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-5">
+        Respeto por el producto nativo, técnicas ancestrales y la calidez del servicio andino contemporáneo.
+      </p>
+
+      <!-- Horarios & Ubicación -->
+      <div class="space-y-2.5 text-xs text-slate-300 border-y border-slate-800 py-4 mb-5">
+        <div class="flex items-start gap-2.5">
+          <span class="material-symbols-outlined text-brand-terracotta text-sm shrink-0 mt-0.5">location_on</span>
+          <span>Av. La Mar 1285, Miraflores, Lima - Perú</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-brand-turquoise text-sm shrink-0">call</span>
+          <span>+51 987 654 321 &bull; Reservas</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-brand-mustard text-sm shrink-0">schedule</span>
+          <span>Martes a Domingo: 12:30 pm a 11:00 pm</span>
+        </div>
+      </div>
+
+      <!-- Redes Sociales -->
+      <div class="flex items-center justify-between pt-1 mb-5">
+        <span class="text-xs font-semibold text-slate-300">Síguenos:</span>
+        <div class="flex items-center gap-2.5">
+          <a href="#" class="w-8 h-8 rounded-full bg-brand-navyLight hover:bg-brand-terracotta flex items-center justify-center text-slate-200 hover:text-white transition-colors" aria-label="Instagram">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </a>
+          <a href="#" class="w-8 h-8 rounded-full bg-brand-navyLight hover:bg-brand-terracotta flex items-center justify-center text-slate-200 hover:text-white transition-colors" aria-label="Facebook">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/></svg>
+          </a>
+          <a href="#" class="w-8 h-8 rounded-full bg-brand-navyLight hover:bg-brand-terracotta flex items-center justify-center text-slate-200 hover:text-white transition-colors" aria-label="WhatsApp">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Watermark Kamay Menu -->
+      <div class="text-[10px] text-slate-300 text-center pt-3 border-t border-slate-800 flex items-center justify-center gap-1.5">
+        <span>Menú digital generado con</span>
+        <span class="font-semibold text-brand-terracotta">Kamay Menu</span>
+        <span>&bull; Rápido y sin descargas</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <script>
+    // Interacción suave para las pestañas de categorías
+    const navLinks = document.querySelectorAll('nav a');
+    navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        navLinks.forEach(l => {
+          l.classList.remove('active-nav-tab');
+          l.classList.add('bg-slate-100', 'text-slate-700');
+        });
+        link.classList.add('active-nav-tab');
+        link.classList.remove('bg-slate-100', 'text-slate-700');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 function MenuIcon() {
   return (
@@ -48,6 +49,12 @@ function FacebookIcon() {
 function Login() {
   const [mode, setMode] = useState('login')
   const isLogin = mode === 'login'
+  const navigate = useNavigate()
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    navigate(isLogin ? '/dashboard' : '/onboarding')
+  }
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-gray-100 p-6">
@@ -119,6 +126,7 @@ function Login() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
+              onClick={() => navigate('/dashboard')}
               className="flex items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <GoogleIcon />
@@ -126,6 +134,7 @@ function Login() {
             </button>
             <button
               type="button"
+              onClick={() => navigate('/dashboard')}
               className="flex items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <FacebookIcon />
@@ -141,7 +150,7 @@ function Login() {
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {!isLogin && (
               <div>
                 <label className="text-sm font-medium text-gray-700">Nombre</label>

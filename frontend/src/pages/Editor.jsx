@@ -1,4 +1,38 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5">
+      <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CheckIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 function MenuLogo() {
   return (
@@ -287,12 +321,115 @@ function LeftSidebar() {
   )
 }
 
+// Cuántos menús puede crear un restaurante según su plan (ver /subscription y la
+// tabla de precios de la landing: Básico = 1 menú, Pro/Enterprise = ilimitados).
+const PLAN_MENU_LIMITS = { basico: 1, pro: Infinity, enterprise: Infinity }
+
+function MenuSwitcher() {
+  const [open, setOpen] = useState(false)
+  const [menus, setMenus] = useState([{ id: 1, name: 'Menú Principal' }])
+  const [activeId, setActiveId] = useState(1)
+
+  // Plan simulado del restaurante actual (demo). En producción vendría de la cuenta.
+  const plan = 'basico'
+  const limit = PLAN_MENU_LIMITS[plan]
+  const atLimit = menus.length >= limit
+  const activeMenu = menus.find((menu) => menu.id === activeId)
+
+  const addMenu = () => {
+    if (atLimit) return
+    const nextId = Math.max(...menus.map((menu) => menu.id)) + 1
+    setMenus((prev) => [...prev, { id: nextId, name: `Menú ${nextId}` }])
+    setActiveId(nextId)
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+      >
+        {activeMenu.name}
+        <ChevronDown />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1.5 w-64 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
+            <p className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              Menús de este restaurante
+            </p>
+            {menus.map((menu) => (
+              <button
+                key={menu.id}
+                type="button"
+                onClick={() => {
+                  setActiveId(menu.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                {menu.name}
+                {menu.id === activeId && <CheckIcon className="h-4 w-4 text-orange-500" />}
+              </button>
+            ))}
+
+            <div className="my-1 h-px bg-gray-100" />
+
+            {atLimit ? (
+              <Link
+                to="/subscription"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-gray-400 hover:bg-gray-50"
+              >
+                <span className="flex items-center gap-1.5">
+                  <LockIcon />
+                  Nuevo Menú
+                </span>
+                <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600">
+                  PRO
+                </span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={addMenu}
+                className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-2 text-left text-sm font-medium text-orange-600 hover:bg-orange-50"
+              >
+                <PlusIcon />
+                Nuevo Menú
+              </button>
+            )}
+
+            {atLimit && (
+              <p className="px-2.5 pb-1 pt-1.5 text-[11px] text-gray-400">
+                Tu plan Básico incluye 1 menú digital. Mejora a Pro para crear menús ilimitados.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function TopBar() {
   const [view, setView] = useState('mobile')
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-4">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <BackIcon />
+          Volver
+        </Link>
+        <div className="h-5 w-px bg-gray-200" />
         <div className="flex items-center gap-2 text-gray-900">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-900 text-white">
             <MenuLogo />
@@ -300,10 +437,7 @@ function TopBar() {
           <span className="text-sm font-semibold">KamayMenu</span>
         </div>
         <div className="h-5 w-px bg-gray-200" />
-        <button type="button" className="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100">
-          Menú Principal
-          <ChevronDown />
-        </button>
+        <MenuSwitcher />
         <button type="button" className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-600 hover:bg-gray-100">
           Bistro Andino
           <ChevronDown />
@@ -346,10 +480,15 @@ function TopBar() {
           <QrDownloadIcon />
           Descargar QR
         </button>
-        <button type="button" className="flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+        <a
+          href="/demo/bistro-andino.html"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+        >
           <EyeIcon />
           Vista Previa
-        </button>
+        </a>
         <button type="button" className="rounded-md bg-orange-500 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-orange-600">
           Publicar Menú
         </button>

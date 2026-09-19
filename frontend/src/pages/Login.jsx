@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import apiClient from '../api/client'
+import { useAuth } from '../context/AuthContext'
+import { useRestaurante } from '../context/RestauranteContext'
 
 function MenuIcon() {
   return (
@@ -46,14 +49,66 @@ function FacebookIcon() {
   )
 }
 
+// Cuenta nueva: aún no existe un flujo para elegir nombre/subdominio del
+// restaurante (el Onboarding sigue siendo solo visual), así que se crea uno
+// por defecto para que Dashboard/Productos/Editor tengan algo real que mostrar.
+function generarSubdominioTemporal() {
+  return `restaurante-${Date.now().toString().slice(-8)}`
+}
+
 function Login() {
   const [mode, setMode] = useState('login')
   const isLogin = mode === 'login'
   const navigate = useNavigate()
+  const { setToken } = useAuth()
+  const { refresh } = useRestaurante()
 
-  const handleSubmit = (event) => {
+  const [nombre, setNombre] = useState('')
+  const [correo, setCorreo] = useState('')
+  const [contrasena, setContrasena] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    navigate(isLogin ? '/dashboard' : '/onboarding')
+    setError('')
+    setLoading(true)
+
+    try {
+      if (isLogin) {
+        const { data } = await apiClient.post('/auth/login', { correo, contrasena })
+        setToken(data.token)
+        await refresh()
+        navigate('/dashboard')
+      } else {
+        const { data } = await apiClient.post('/auth/registro', { correo, contrasena, nombre })
+        setToken(data.token)
+
+        const { data: restaurante } = await apiClient.post('/restaurantes', {
+          nombre: 'Mi Restaurante',
+          subdominio: generarSubdominioTemporal(),
+        })
+
+        // Cuenta nueva = plan gratis por defecto (Subscription/Checkout siguen
+        // siendo solo visuales, así que sin esto nadie podría crear su primer
+        // menú: el backend exige una suscripción activa para eso).
+        const { data: planes } = await apiClient.get('/planes')
+        const planGratis = planes.find((p) => p.precio === 0) ?? planes[0]
+        if (planGratis) {
+          await apiClient.post(`/restaurantes/${restaurante.id_restaurante}/suscripcion`, {
+            id_plan: planGratis.id_plan,
+            metodo_pago: 'otro',
+          })
+        }
+
+        await refresh()
+        navigate('/onboarding')
+      }
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'Algo salió mal, intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -126,16 +181,18 @@ function Login() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled
+              title="Próximamente"
+              className="flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-400"
             >
               <GoogleIcon />
               Google
             </button>
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled
+              title="Próximamente"
+              className="flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-gray-300 py-2.5 text-sm font-medium text-gray-400"
             >
               <FacebookIcon />
               Facebook
@@ -156,6 +213,9 @@ function Login() {
                 <label className="text-sm font-medium text-gray-700">Nombre</label>
                 <input
                   type="text"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  required
                   placeholder="Tu nombre"
                   className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm placeholder-gray-400 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
                 />
@@ -166,6 +226,9 @@ function Login() {
               <label className="text-sm font-medium text-gray-700">Correo electrónico</label>
               <input
                 type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                required
                 placeholder="nombre@empresa.com"
                 className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm placeholder-gray-400 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
               />
@@ -182,16 +245,28 @@ function Login() {
               </div>
               <input
                 type="password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                required
+                minLength={isLogin ? undefined : 8}
                 placeholder="••••••••"
                 className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm placeholder-gray-400 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
               />
+              {!isLogin && (
+                <p className="mt-1 text-xs text-gray-400">Mínimo 8 caracteres.</p>
+              )}
             </div>
+
+            {error && (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            )}
 
             <button
               type="submit"
-              className="w-full rounded-md bg-orange-500 py-3 text-sm font-medium text-white shadow-sm hover:bg-orange-600"
+              disabled={loading}
+              className="w-full rounded-md bg-orange-500 py-3 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:opacity-60"
             >
-              {isLogin ? 'Iniciar sesión' : 'Crear cuenta'}
+              {loading ? 'Un momento...' : isLogin ? 'Iniciar sesión' : 'Crear cuenta'}
             </button>
           </form>
         </div>

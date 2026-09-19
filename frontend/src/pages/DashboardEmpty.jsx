@@ -12,9 +12,9 @@ const steps = [
   },
   {
     number: 2,
-    title: 'Personaliza tu menú digital',
-    description: 'Elige colores, tipografía y el orden de tus categorías.',
-    cta: 'Personalizar',
+    title: 'Diseña tus piezas visuales',
+    description: 'Crea banners y promociones con el editor de diseño libre.',
+    cta: 'Diseñar',
     to: '/editor',
     primary: false,
   },

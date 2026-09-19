@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,10 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := os.MkdirAll(cfg.UploadDir+"/editor", 0o755); err != nil {
+		log.Fatalf("could not prepare upload dir: %v", err)
+	}
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
@@ -29,8 +34,9 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
+	router.Static("/uploads", cfg.UploadDir)
 
-	routes.Register(router, db)
+	routes.Register(router, db, cfg.JWTSecret, cfg.UploadDir)
 
 	log.Printf("server listening on :%s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {

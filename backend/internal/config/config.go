@@ -9,6 +9,8 @@ import (
 type Config struct {
 	Port        string
 	DatabaseURL string
+	JWTSecret   string
+	UploadDir   string
 }
 
 func Load() Config {
@@ -17,6 +19,8 @@ func Load() Config {
 	return Config{
 		Port:        getEnv("PORT", "8080"),
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/marketeando?sslmode=disable"),
+		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me"),
+		UploadDir:   getEnv("UPLOAD_DIR", "./uploads"),
 	}
 }
 

@@ -77,7 +77,7 @@ function LogoutIcon() {
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/products', label: 'Gestión de Productos', Icon: ProductsIcon },
-  { to: '/editor', label: 'Mi Menú Digital', Icon: MenuDigitalIcon },
+  { to: '/editor', label: 'Editor de Diseño', Icon: MenuDigitalIcon },
   { to: '/subscription', label: 'Suscripción', Icon: SubscriptionIcon },
   { to: '/settings', label: 'Configuración', Icon: SettingsIcon },
 ]

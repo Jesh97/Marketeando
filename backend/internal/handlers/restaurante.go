@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -10,11 +13,12 @@ import (
 )
 
 type RestauranteHandler struct {
-	DB *pgxpool.Pool
+	DB        *pgxpool.Pool
+	UploadDir string
 }
 
-func NewRestauranteHandler(db *pgxpool.Pool) *RestauranteHandler {
-	return &RestauranteHandler{DB: db}
+func NewRestauranteHandler(db *pgxpool.Pool, uploadDir string) *RestauranteHandler {
+	return &RestauranteHandler{DB: db, UploadDir: uploadDir}
 }
 
 type crearRestauranteRequest struct {
@@ -163,6 +167,18 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		idRestaurante,
 	).Scan(&plan, &maxMenu, &maxLocal)
 
+	// El menú principal siempre existe una vez creado el primer menú (ver
+	// MenuHandler.Create); menuPublicado indica si alguna vez se publicó,
+	// para que el Dashboard pueda ofrecer "Publicar" o "Publicar cambios".
+	var idMenuPrincipal *int
+	var menuPublicado bool
+	_ = h.DB.QueryRow(ctx,
+		`SELECT m.id_menu,
+		        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = m.id_menu AND mv.estado = 'publicada')
+		 FROM menu m WHERE m.id_restaurante = $1 AND m.es_principal AND m.activo`,
+		idRestaurante,
+	).Scan(&idMenuPrincipal, &menuPublicado)
+
 	c.JSON(http.StatusOK, gin.H{
 		"visitas_30d":        visitas30d,
 		"escaneos_qr_30d":    escaneosQR30d,
@@ -171,5 +187,86 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		"plan":               plan,
 		"max_menu":           maxMenu,
 		"max_local":          maxLocal,
+		"id_menu_principal":  idMenuPrincipal,
+		"menu_publicado":     menuPublicado,
 	})
+}
+
+// SubirLogo reemplaza el logo del restaurante: sube la imagen (misma
+// validación que ProductoHandler.Upload/EditorHandler.Upload) y de una la
+// deja guardada en restaurante.url_logo, sin un paso aparte de "Guardar".
+func (h *RestauranteHandler) SubirLogo(c *gin.Context) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "falta el archivo (campo 'file')"})
+		return
+	}
+	if fileHeader.Size > maxUploadBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 10MB"})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
+		return
+	}
+	defer file.Close()
+
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(file, head)
+	contentType := http.DetectContentType(head[:n])
+
+	ext, ok := extensionesPermitidas[contentType]
+	if !ok {
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "formato no soportado (usa png, jpg, webp o gif)"})
+		return
+	}
+
+	name, err := randomFilename()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo generar el archivo"})
+		return
+	}
+	name += ext
+
+	dir := filepath.Join(h.UploadDir, "restaurantes")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo preparar el almacenamiento"})
+		return
+	}
+
+	dest, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+	defer dest.Close()
+
+	if _, err := dest.Write(head[:n]); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+	if _, err := io.Copy(dest, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+
+	url := "/uploads/restaurantes/" + name
+
+	var r models.Restaurante
+	err = h.DB.QueryRow(
+		c.Request.Context(),
+		`UPDATE restaurante SET url_logo = $1 WHERE id_restaurante = $2
+		 RETURNING id_restaurante, id_usuario, id_tipo_restaurante, nombre, subdominio, slogan,
+		           url_logo, telefono, zona_horaria, activo, fecha_registro`,
+		url, currentRestauranteID(c),
+	).Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
+		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, r)
 }

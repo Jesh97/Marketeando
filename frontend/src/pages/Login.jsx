@@ -49,13 +49,6 @@ function FacebookIcon() {
   )
 }
 
-// Cuenta nueva: aún no existe un flujo para elegir nombre/subdominio del
-// restaurante (el Onboarding sigue siendo solo visual), así que se crea uno
-// por defecto para que Dashboard/Productos/Editor tengan algo real que mostrar.
-function generarSubdominioTemporal() {
-  return `restaurante-${Date.now().toString().slice(-8)}`
-}
-
 function Login() {
   const [mode, setMode] = useState('login')
   const isLogin = mode === 'login'
@@ -81,26 +74,11 @@ function Login() {
         await refresh()
         navigate('/dashboard')
       } else {
+        // El registro crea, en una sola llamada, la cuenta, su restaurante y
+        // un plan gratis activo (subdominio incluido, generado del lado del
+        // servidor) — ver AuthHandler.Registro en el backend.
         const { data } = await apiClient.post('/auth/registro', { correo, contrasena, nombre })
         setToken(data.token)
-
-        const { data: restaurante } = await apiClient.post('/restaurantes', {
-          nombre: 'Mi Restaurante',
-          subdominio: generarSubdominioTemporal(),
-        })
-
-        // Cuenta nueva = plan gratis por defecto (Subscription/Checkout siguen
-        // siendo solo visuales, así que sin esto nadie podría crear su primer
-        // menú: el backend exige una suscripción activa para eso).
-        const { data: planes } = await apiClient.get('/planes')
-        const planGratis = planes.find((p) => p.precio === 0) ?? planes[0]
-        if (planGratis) {
-          await apiClient.post(`/restaurantes/${restaurante.id_restaurante}/suscripcion`, {
-            id_plan: planGratis.id_plan,
-            metodo_pago: 'otro',
-          })
-        }
-
         await refresh()
         navigate('/onboarding')
       }

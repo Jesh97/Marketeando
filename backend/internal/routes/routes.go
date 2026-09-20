@@ -11,9 +11,9 @@ import (
 func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir string) {
 	campaignHandler := handlers.NewCampaignHandler(db)
 	authHandler := handlers.NewAuthHandler(db, jwtSecret)
-	restauranteHandler := handlers.NewRestauranteHandler(db)
+	restauranteHandler := handlers.NewRestauranteHandler(db, uploadDir)
 	categoriaHandler := handlers.NewCategoriaHandler(db)
-	productoHandler := handlers.NewProductoHandler(db)
+	productoHandler := handlers.NewProductoHandler(db, uploadDir)
 	menuHandler := handlers.NewMenuHandler(db)
 	planHandler := handlers.NewPlanHandler(db)
 	suscripcionHandler := handlers.NewSuscripcionHandler(db)
@@ -58,6 +58,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 			{
 				mio.GET("", restauranteHandler.Get)
 				mio.PUT("", restauranteHandler.Update)
+				mio.POST("/logo", restauranteHandler.SubirLogo)
 				mio.GET("/dashboard", restauranteHandler.Dashboard)
 
 				categorias := mio.Group("/categorias")
@@ -72,6 +73,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 				{
 					productos.GET("", productoHandler.List)
 					productos.POST("", productoHandler.Create)
+					productos.POST("/upload", productoHandler.Upload)
 					productos.PUT("/:id_producto", productoHandler.Update)
 					productos.PATCH("/:id_producto/agotado", productoHandler.ToggleAgotado)
 					productos.DELETE("/:id_producto", productoHandler.Delete)
@@ -84,6 +86,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 					menus.GET("/:id_menu/borrador", menuHandler.Borrador)
 					menus.PUT("/:id_menu/borrador", menuHandler.GuardarBorrador)
 					menus.POST("/:id_menu/publicar", menuHandler.Publicar)
+					menus.POST("/:id_menu/publicar-diseno", menuHandler.PublicarDiseno)
 				}
 
 				suscripcion := mio.Group("/suscripcion")

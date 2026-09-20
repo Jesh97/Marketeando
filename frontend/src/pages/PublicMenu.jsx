@@ -81,8 +81,11 @@ function PublicMenu() {
       .get(`/public/menu/${slug}`)
       .then(({ data }) => {
         setData(data)
+        // 'Otros' es la misma etiqueta de respaldo que usan `categorias` y
+        // `productosVisibles` para productos sin id_categoria; si difiere de
+        // acá, la pestaña activa nunca hace match y el menú se ve vacío.
         const primeraCategoria = data.productos.find((p) => p.categoria)?.categoria
-        setActive(primeraCategoria ?? 'Todos')
+        setActive(primeraCategoria ?? 'Otros')
       })
       .catch((err) => setError(err.response?.data?.error ?? 'No se pudo cargar el menú.'))
   }, [slug])
@@ -99,6 +102,37 @@ function PublicMenu() {
     return (
       <div className="flex min-h-svh items-center justify-center bg-[#F6F8FC]">
         <p className="text-sm text-[#8A94A6]">Cargando menú...</p>
+      </div>
+    )
+  }
+
+  // Si el restaurante publicó un diseño libre desde el Editor (en vez del
+  // menú estructurado por categorías/productos), ese HTML manda: se escala
+  // al ancho de la pantalla con el mismo truco svg+foreignObject que usa la
+  // miniatura de plantillas del Editor, sin importar el tamaño del lienzo
+  // original (800x1000, 1080x1920, etc.).
+  if (data.contenido?.diseno_html) {
+    const disenoCanvas = data.contenido.diseno_canvas ?? { width: 800, height: 1000 }
+    return (
+      <div className="min-h-svh bg-[#F6F8FC]">
+        <div
+          className="mx-auto w-full max-w-2xl"
+          style={{ aspectRatio: `${disenoCanvas.width} / ${disenoCanvas.height}` }}
+        >
+          <svg viewBox={`0 0 ${disenoCanvas.width} ${disenoCanvas.height}`} className="h-full w-full">
+            <foreignObject width={disenoCanvas.width} height={disenoCanvas.height}>
+              <div
+                xmlns="http://www.w3.org/1999/xhtml"
+                dangerouslySetInnerHTML={{ __html: data.contenido.diseno_html }}
+              />
+            </foreignObject>
+          </svg>
+        </div>
+        <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8]">
+          <p className="text-xs">
+            Menú digital creado con <span className="font-bold text-white">Karta Kamay</span>
+          </p>
+        </div>
       </div>
     )
   }

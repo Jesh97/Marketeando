@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import QRCode from 'qrcode'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
@@ -59,6 +60,9 @@ function Dashboard() {
   const { usuario, restaurante, loading: loadingRestaurante } = useRestaurante()
   const [stats, setStats] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState('')
 
   useEffect(() => {
     if (!restaurante) return
@@ -71,12 +75,61 @@ function Dashboard() {
   const primerNombre = usuario?.nombre?.split(' ')[0] ?? ''
   const subdominio = stats?.subdominio ?? restaurante?.subdominio
   const enlacePublico = subdominio ? `${window.location.origin}/menu/${subdominio}` : ''
+  // El QR lleva ?origen=qr para que el backend distinga escaneos de clics al
+  // enlace copiado (ver visita_menu / "Escaneos de QR" arriba).
+  const enlaceQr = subdominio ? `${enlacePublico}?origen=qr` : ''
+
+  useEffect(() => {
+    if (!enlaceQr) {
+      setQrDataUrl(null)
+      return
+    }
+    let cancelled = false
+    QRCode.toDataURL(enlaceQr, {
+      width: 480,
+      margin: 1,
+      color: { dark: '#0B1C30', light: '#FFFFFF' },
+    })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [enlaceQr])
 
   const copiarEnlace = () => {
     if (!enlacePublico) return
     navigator.clipboard?.writeText(enlacePublico)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  const descargarQr = () => {
+    if (!qrDataUrl || !subdominio) return
+    const a = document.createElement('a')
+    a.href = qrDataUrl
+    a.download = `qr-menu-${subdominio}.png`
+    a.click()
+  }
+
+  const publicarMenu = async () => {
+    if (!restaurante || !stats?.id_menu_principal) return
+    setPublishing(true)
+    setPublishError('')
+    try {
+      await apiClient.post(
+        `/restaurantes/${restaurante.id_restaurante}/menus/${stats.id_menu_principal}/publicar`,
+      )
+      setStats((prev) => (prev ? { ...prev, menu_publicado: true } : prev))
+    } catch (err) {
+      setPublishError(err.response?.data?.error ?? 'No se pudo publicar el menú.')
+    } finally {
+      setPublishing(false)
+    }
   }
 
   if (loadingRestaurante) {
@@ -208,7 +261,21 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[1.5fr_1fr]">
         <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
-          <h2 className="text-base font-bold text-navy">Tu subdominio en vivo</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-navy">Tu subdominio en vivo</h2>
+            {stats && (
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+                style={
+                  stats.menu_publicado
+                    ? { background: '#DCFCE7', color: '#16A34A' }
+                    : { background: '#FEF3C7', color: '#B45309' }
+                }
+              >
+                {stats.menu_publicado ? 'Publicado' : 'Sin publicar'}
+              </span>
+            )}
+          </div>
           <p className="mt-1.5 text-[13.5px] text-[#4A5568]">
             El enlace donde tus clientes ven el menú activo.
           </p>
@@ -225,17 +292,35 @@ function Dashboard() {
               {copied ? '¡Copiado!' : 'Copiar Enlace'}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={publicarMenu}
+            disabled={publishing || !stats?.id_menu_principal}
+            className="mt-3.5 h-10 w-full rounded-[9px] bg-orange text-[13px] font-semibold text-white hover:bg-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {publishing
+              ? 'Publicando...'
+              : stats?.menu_publicado
+                ? 'Publicar cambios'
+                : 'Publicar menú'}
+          </button>
+          {publishError && <p className="mt-2 text-xs text-[#DC2626]">{publishError}</p>}
         </div>
 
         <div className="flex flex-col items-center rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
           <span className="self-start text-sm font-bold text-navy">Código QR Principal</span>
-          <div className="my-3.5 flex h-[110px] w-[110px] items-center justify-center rounded-[10px] bg-navy">
-            <QrCodeArt />
+          <div className="my-3.5 flex h-[110px] w-[110px] items-center justify-center overflow-hidden rounded-[10px] bg-navy">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Código QR del menú" className="h-full w-full bg-white object-contain" />
+            ) : (
+              <QrCodeArt />
+            )}
           </div>
           <button
             type="button"
-            disabled
-            className="h-9 w-full cursor-not-allowed rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-[#8A94A6]"
+            onClick={descargarQr}
+            disabled={!qrDataUrl}
+            className="h-9 w-full rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Descargar
           </button>

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
+import { useRestaurante } from '../context/RestauranteContext'
 
 const tabs = [
   { id: 'profile', label: 'Perfil del Restaurante' },
@@ -48,20 +50,65 @@ function Toggle({ on }) {
 }
 
 function ProfilePanel() {
+  const { restaurante, setRestaurante } = useRestaurante()
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
+
+  const handleLogoChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !restaurante) return
+    setError('')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await apiClient.post(
+        `/restaurantes/${restaurante.id_restaurante}/logo`,
+        formData,
+        { headers: { 'Content-Type': undefined } },
+      )
+      setRestaurante(data)
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo subir el logo.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-6">
       <h2 className="mb-5 text-base font-bold text-navy">Perfil del restaurante</h2>
       <div className="mb-5 flex items-center gap-4">
-        <div className="h-16 w-16 shrink-0 rounded-2xl bg-[#C97B5F]" />
+        {restaurante?.url_logo ? (
+          <img
+            src={restaurante.url_logo}
+            alt=""
+            className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+          />
+        ) : (
+          <div className="h-16 w-16 shrink-0 rounded-2xl bg-[#C97B5F]" />
+        )}
         <button
           type="button"
-          className="rounded-[9px] border border-[#E2E8F0] bg-white px-4 py-2 text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || !restaurante}
+          className="rounded-[9px] border border-[#E2E8F0] bg-white px-4 py-2 text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Cambiar logo
+          {uploading ? 'Subiendo...' : 'Cambiar logo'}
         </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={handleLogoChange}
+        />
       </div>
+      {error && <p className="mb-4 text-xs text-[#DC2626]">{error}</p>}
       <div className="flex flex-col gap-4">
-        <Field label="Nombre del restaurante" defaultValue="Bistro Andino" />
+        <Field label="Nombre del restaurante" defaultValue={restaurante?.nombre ?? 'Bistro Andino'} />
         <Field label="Dirección" defaultValue="Av. Los Incas 482, Cusco" />
         <div className="flex flex-col gap-3.5 sm:flex-row">
           <div className="flex-1">

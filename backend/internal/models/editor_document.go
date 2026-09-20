@@ -15,11 +15,13 @@ type EditorDocument struct {
 	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
-// EditorDocumentSummary se usa en el listado: evita mandar data_json/html_content
-// completos (pueden pesar bastante) solo para mostrar tarjetas.
+// EditorDocumentSummary se usa en el listado: incluye data_json (para pintar
+// una miniatura de cada tarjeta) pero no html_content, que es más pesado y
+// redundante ya que el frontend puede generar el HTML a partir de data_json.
 type EditorDocumentSummary struct {
-	ID        int       `json:"id"`
-	Title     string    `json:"title"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int             `json:"id"`
+	Title     string          `json:"title"`
+	DataJSON  json.RawMessage `json:"data_json"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }

@@ -42,12 +42,35 @@ function statusFor(product) {
   return { label: 'Inactivo', bg: '#F1F5F9', text: '#64748B' }
 }
 
-const emptyForm = { nombre: '', descripcion: '', precio: '', id_categoria: '' }
+const emptyForm = { nombre: '', descripcion: '', precio: '', id_categoria: '', url_imagen: null }
 
-function ProductModal({ categorias, initial, onClose, onSave }) {
+function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
   const [form, setForm] = useState(initial ?? emptyForm)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+
+  const handleFotoChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await apiClient.post(
+        `/restaurantes/${idRestaurante}/productos/upload`,
+        formData,
+        { headers: { 'Content-Type': undefined } },
+      )
+      setForm((prev) => ({ ...prev, url_imagen: data.url }))
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo subir la foto.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -59,6 +82,7 @@ function ProductModal({ categorias, initial, onClose, onSave }) {
         descripcion: form.descripcion || null,
         precio: Number(form.precio),
         id_categoria: form.id_categoria ? Number(form.id_categoria) : null,
+        url_imagen: form.url_imagen || null,
       })
       onClose()
     } catch (err) {
@@ -75,6 +99,28 @@ function ProductModal({ categorias, initial, onClose, onSave }) {
           {initial ? 'Editar producto' : 'Nuevo producto'}
         </h2>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-navy">Foto</label>
+            <div className="flex items-center gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F6F8FC]">
+                {form.url_imagen ? (
+                  <img src={form.url_imagen} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-[#8A94A6]">Sin foto</span>
+                )}
+              </div>
+              <label className="cursor-pointer rounded-[9px] border border-[#E2E8F0] px-3.5 py-2 text-[13px] font-semibold text-navy hover:bg-[#F6F8FC]">
+                {uploading ? 'Subiendo...' : form.url_imagen ? 'Cambiar foto' : 'Subir foto'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={handleFotoChange}
+                />
+              </label>
+            </div>
+          </div>
           <div>
             <label className="mb-1.5 block text-[13px] font-semibold text-navy">Nombre</label>
             <input
@@ -136,13 +182,150 @@ function ProductModal({ categorias, initial, onClose, onSave }) {
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploading}
               className="rounded-[9px] bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-dark disabled:opacity-60"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function CategoriaModal({ categorias, idRestaurante, onClose, onChange }) {
+  const [nombreNuevo, setNombreNuevo] = useState('')
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState('')
+  const [editId, setEditId] = useState(null)
+  const [editNombre, setEditNombre] = useState('')
+
+  const crear = async (event) => {
+    event.preventDefault()
+    if (!nombreNuevo.trim()) return
+    setError('')
+    setCreando(true)
+    try {
+      const { data } = await apiClient.post(`/restaurantes/${idRestaurante}/categorias`, {
+        nombre: nombreNuevo.trim(),
+        orden: categorias.length,
+      })
+      onChange([...categorias, data])
+      setNombreNuevo('')
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo crear la categoría.')
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  const guardarEdicion = async (cat) => {
+    const nombre = editNombre.trim()
+    setEditId(null)
+    if (!nombre || nombre === cat.nombre) return
+    setError('')
+    try {
+      await apiClient.put(`/restaurantes/${idRestaurante}/categorias/${cat.id_categoria}`, {
+        nombre,
+        orden: cat.orden,
+      })
+      onChange(categorias.map((c) => (c.id_categoria === cat.id_categoria ? { ...c, nombre } : c)))
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo renombrar la categoría.')
+    }
+  }
+
+  const eliminar = async (cat) => {
+    if (
+      !window.confirm(
+        `¿Eliminar la categoría "${cat.nombre}"? Los productos que la usan quedarán sin categoría.`,
+      )
+    )
+      return
+    setError('')
+    try {
+      await apiClient.delete(`/restaurantes/${idRestaurante}/categorias/${cat.id_categoria}`)
+      onChange(categorias.filter((c) => c.id_categoria !== cat.id_categoria))
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo eliminar la categoría.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-bold text-navy">Categorías</h2>
+        <p className="mt-1 text-xs text-[#8A94A6]">
+          Cada negocio es distinto: arma las categorías que tengan sentido para tu menú.
+        </p>
+
+        <ul className="mt-4 max-h-64 space-y-1.5 overflow-y-auto">
+          {categorias.length === 0 && (
+            <li className="py-2 text-sm text-[#8A94A6]">Aún no tienes categorías.</li>
+          )}
+          {categorias.map((cat) => (
+            <li key={cat.id_categoria} className="flex items-center gap-2">
+              {editId === cat.id_categoria ? (
+                <input
+                  autoFocus
+                  value={editNombre}
+                  onChange={(e) => setEditNombre(e.target.value)}
+                  onBlur={() => guardarEdicion(cat)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  className="h-9 flex-1 rounded-[9px] border border-[#E2E8F0] px-2.5 text-sm outline-none focus:border-orange"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditId(cat.id_categoria)
+                    setEditNombre(cat.nombre)
+                  }}
+                  className="h-9 flex-1 rounded-[9px] border border-transparent px-2.5 text-left text-sm text-navy hover:border-[#E2E8F0]"
+                >
+                  {cat.nombre}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => eliminar(cat)}
+                title="Eliminar"
+                className="flex h-9 w-9 items-center justify-center rounded-[9px] text-[#8A94A6] hover:bg-red-50 hover:text-red-600"
+              >
+                <TrashIcon />
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <form onSubmit={crear} className="mt-4 flex gap-2">
+          <input
+            value={nombreNuevo}
+            onChange={(e) => setNombreNuevo(e.target.value)}
+            placeholder="Nueva categoría..."
+            className="h-10 flex-1 rounded-[9px] border border-[#E2E8F0] px-3 text-sm outline-none focus:border-orange"
+          />
+          <button
+            type="submit"
+            disabled={creando || !nombreNuevo.trim()}
+            className="rounded-[9px] bg-orange px-3.5 text-sm font-semibold text-white hover:bg-orange-dark disabled:opacity-60"
+          >
+            Añadir
+          </button>
+        </form>
+
+        {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[9px] border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-navy hover:bg-[#F6F8FC]"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -155,6 +338,7 @@ function Products() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // null | 'create' | producto a editar
   const [search, setSearch] = useState('')
+  const [showCategorias, setShowCategorias] = useState(false)
 
   const idRestaurante = restaurante?.id_restaurante
 
@@ -224,13 +408,22 @@ function Products() {
         <h1 className="text-[28px] font-extrabold tracking-tight text-navy">
           Gestión de Productos
         </h1>
-        <button
-          type="button"
-          onClick={() => setModal('create')}
-          className="rounded-[9px] bg-orange px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-orange-dark"
-        >
-          + Nuevo Producto
-        </button>
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowCategorias(true)}
+            className="rounded-[9px] border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+          >
+            Categorías
+          </button>
+          <button
+            type="button"
+            onClick={() => setModal('create')}
+            className="rounded-[9px] bg-orange px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-orange-dark"
+          >
+            + Nuevo Producto
+          </button>
+        </div>
       </div>
       <p className="mb-6 text-sm text-[#4A5568]">
         {agotadosCount} platos agotados hoy · {activosCount} productos activos
@@ -275,10 +468,18 @@ function Products() {
               return (
                 <tr key={product.id_producto} className="border-t border-[#E2E8F0]">
                   <td className="px-4 py-3.5">
-                    <div
-                      className="h-10 w-10 rounded-lg"
-                      style={{ background: swatchFor(product.id_producto) }}
-                    />
+                    {product.url_imagen ? (
+                      <img
+                        src={product.url_imagen}
+                        alt=""
+                        className="h-10 w-10 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-10 w-10 rounded-lg"
+                        style={{ background: swatchFor(product.id_producto) }}
+                      />
+                    )}
                   </td>
                   <td className="px-2.5 py-3.5">
                     <p className="text-sm font-bold text-navy">{product.nombre}</p>
@@ -353,8 +554,18 @@ function Products() {
         <ProductModal
           categorias={categorias}
           initial={modal === 'create' ? null : modal}
+          idRestaurante={idRestaurante}
           onClose={() => setModal(null)}
           onSave={guardarProducto}
+        />
+      )}
+
+      {showCategorias && (
+        <CategoriaModal
+          categorias={categorias}
+          idRestaurante={idRestaurante}
+          onClose={() => setShowCategorias(false)}
+          onChange={setCategorias}
         />
       )}
     </DashboardShell>

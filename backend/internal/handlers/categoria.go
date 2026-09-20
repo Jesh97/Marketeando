@@ -94,6 +94,10 @@ func (h *CategoriaHandler) Update(c *gin.Context) {
 		req.Nombre, req.Orden, idCategoria, currentRestauranteID(c),
 	)
 	if err != nil {
+		if isUniqueViolation(err) {
+			c.JSON(http.StatusConflict, gin.H{"error": "ya existe una categoría con ese nombre"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

@@ -118,7 +118,7 @@ CREATE TABLE suscripcion (
   id_restaurante  int         NOT NULL REFERENCES restaurante (id_restaurante) ON DELETE RESTRICT,
   id_plan         int         NOT NULL REFERENCES plan (id_plan) ON DELETE RESTRICT,
   metodo_pago     varchar(20) NOT NULL
-                  CHECK (metodo_pago IN ('tarjeta', 'yape', 'plin', 'transferencia', 'otro')),
+                  CHECK (metodo_pago IN ('tarjeta', 'yape')),
   estado          varchar(15) NOT NULL DEFAULT 'pendiente'
                   CHECK (estado IN ('pendiente', 'activa', 'cancelada', 'vencida')),
   fecha_inicio    timestamptz NOT NULL,

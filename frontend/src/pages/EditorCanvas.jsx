@@ -7,6 +7,23 @@ import { documentToHtml } from '../lib/editorExport'
 
 const DEFAULT_CANVAS = { width: 800, height: 1000, background: '#ffffff' }
 const MAX_HISTORY = 100
+const CANVAS_MIN_SIZE = 100
+const CANVAS_MAX_SIZE = 4000
+
+// Tamaños rápidos para el lienzo, además de poder tipear un ancho/alto
+// custom. Cubren los formatos más comunes que ya usan las plantillas.
+const CANVAS_SIZE_PRESETS = [
+  { label: 'Menú vertical', width: 800, height: 1000 },
+  { label: 'Post cuadrado', width: 1080, height: 1080 },
+  { label: 'Story', width: 1080, height: 1920 },
+  { label: 'Banner horizontal', width: 1600, height: 900 },
+]
+
+function clampCanvasSize(value) {
+  const n = Math.round(Number(value))
+  if (Number.isNaN(n)) return CANVAS_MIN_SIZE
+  return Math.min(CANVAS_MAX_SIZE, Math.max(CANVAS_MIN_SIZE, n))
+}
 
 // Agrupadas por categoría para el selector. La primera fuente de la
 // primera categoría (Inter) es la que se usa por defecto en texto nuevo.
@@ -1027,8 +1044,53 @@ function EditorCanvas() {
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-900">Lienzo</h3>
               <p className="text-xs text-gray-400">
-                Selecciona un elemento para editarlo, o ajusta el fondo del diseño aquí.
+                Selecciona un elemento para editarlo, o ajusta el fondo y el tamaño del diseño aquí.
               </p>
+              <div>
+                <label className="text-xs font-medium text-gray-500">Tamaño del lienzo</label>
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-gray-400">Ancho</label>
+                    <input
+                      type="number"
+                      min={CANVAS_MIN_SIZE}
+                      max={CANVAS_MAX_SIZE}
+                      value={Math.round(canvas.width)}
+                      onChange={(e) => setCanvas((c) => ({ ...c, width: Number(e.target.value) }))}
+                      onBlur={(e) => setCanvas((c) => ({ ...c, width: clampCanvasSize(e.target.value) }))}
+                      className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-400">Alto</label>
+                    <input
+                      type="number"
+                      min={CANVAS_MIN_SIZE}
+                      max={CANVAS_MAX_SIZE}
+                      value={Math.round(canvas.height)}
+                      onChange={(e) => setCanvas((c) => ({ ...c, height: Number(e.target.value) }))}
+                      onBlur={(e) => setCanvas((c) => ({ ...c, height: clampCanvasSize(e.target.value) }))}
+                      className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  {CANVAS_SIZE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setCanvas((c) => ({ ...c, width: preset.width, height: preset.height }))}
+                      className={`rounded-md border px-2 py-1.5 text-xs font-medium ${
+                        canvas.width === preset.width && canvas.height === preset.height
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="text-xs font-medium text-gray-500">Relleno</label>
                 <div className="mt-1.5 grid grid-cols-3 gap-1.5">

@@ -17,6 +17,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 	menuHandler := handlers.NewMenuHandler(db)
 	planHandler := handlers.NewPlanHandler(db)
 	suscripcionHandler := handlers.NewSuscripcionHandler(db)
+	metodoPagoHandler := handlers.NewMetodoPagoHandler(db)
 	publicHandler := handlers.NewPublicHandler(db)
 	editorHandler := handlers.NewEditorHandler(db, uploadDir)
 
@@ -94,6 +95,12 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 					suscripcion.GET("", suscripcionHandler.Get)
 					suscripcion.POST("", suscripcionHandler.Suscribir)
 					suscripcion.GET("/facturas", suscripcionHandler.Facturas)
+				}
+
+				metodoPago := mio.Group("/metodo-pago")
+				{
+					metodoPago.GET("", metodoPagoHandler.Get)
+					metodoPago.PUT("", metodoPagoHandler.Guardar)
 				}
 			}
 

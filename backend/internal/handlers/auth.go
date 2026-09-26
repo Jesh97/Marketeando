@@ -113,7 +113,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 		err = tx.QueryRow(
 			ctx,
 			`INSERT INTO suscripcion (id_restaurante, id_plan, metodo_pago, estado, fecha_inicio, fecha_fin, renueva_en)
-			 VALUES ($1, $2, 'otro', 'activa', $3, $4, $5) RETURNING id_suscripcion`,
+			 VALUES ($1, $2, 'yape', 'activa', $3, $4, $5) RETURNING id_suscripcion`,
 			idRestaurante, idPlanGratis, inicio, fin, fin,
 		).Scan(&idSuscripcion)
 		if err == nil {

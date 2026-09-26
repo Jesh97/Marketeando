@@ -2,8 +2,23 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
+import { useRestaurante } from '../context/RestauranteContext'
 import { documentToHtml } from '../lib/editorExport'
 import { TEMPLATES } from '../lib/editorTemplates'
+
+// Las plantillas prearmadas ("bocetos") son un beneficio de Pro/Enterprise;
+// el plan Básico solo puede empezar en blanco. Se resuelve en el cliente
+// porque las plantillas no existen en la base de datos.
+const PLANES_CON_PLANTILLAS = new Set(['Pro', 'Enterprise'])
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
 
 function formatFecha(value) {
   return new Date(value).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -29,7 +44,7 @@ function TemplatePreview({ canvas, elements, className = '' }) {
   )
 }
 
-function TemplateModal({ onClose, onPickBlank, onPickTemplate, creating }) {
+function TemplateModal({ onClose, onPickBlank, onPickTemplate, onPickLocked, creating, plantillasDisponibles }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -39,6 +54,15 @@ function TemplateModal({ onClose, onPickBlank, onPickTemplate, creating }) {
             Cerrar
           </button>
         </div>
+        {!plantillasDisponibles && (
+          <p className="mb-4 rounded-lg bg-orange-50 px-3 py-2 text-xs text-orange-700">
+            Las plantillas prediseñadas son un beneficio de los planes Pro y Enterprise.{' '}
+            <Link to="/subscription" className="font-semibold underline">
+              Mejora tu plan
+            </Link>{' '}
+            para desbloquearlas.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <button
             type="button"
@@ -51,15 +75,31 @@ function TemplateModal({ onClose, onPickBlank, onPickTemplate, creating }) {
           </button>
           {TEMPLATES.map((template) => {
             const { canvas, elements } = template.build()
+            const locked = !plantillasDisponibles
             return (
               <button
                 key={template.id}
                 type="button"
                 disabled={creating}
-                onClick={() => onPickTemplate(template)}
-                className="flex flex-col gap-2 rounded-lg border border-gray-200 p-1.5 text-left hover:border-orange-300 disabled:opacity-50"
+                onClick={() => (locked ? onPickLocked() : onPickTemplate(template))}
+                title={locked ? 'Disponible en los planes Pro y Enterprise' : undefined}
+                className="group relative flex flex-col gap-2 rounded-lg border border-gray-200 p-1.5 text-left hover:border-orange-300 disabled:opacity-50"
               >
-                <TemplatePreview canvas={canvas} elements={elements} className="rounded-lg" />
+                <div className="relative">
+                  <TemplatePreview
+                    canvas={canvas}
+                    elements={elements}
+                    className={`rounded-lg ${locked ? 'opacity-50 grayscale' : ''}`}
+                  />
+                  {locked && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-black/10 text-white">
+                      <LockIcon />
+                      <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                        Pro
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <span className="px-1 pb-1 text-sm font-medium text-gray-700">{template.name}</span>
               </button>
             )
@@ -72,10 +112,13 @@ function TemplateModal({ onClose, onPickBlank, onPickTemplate, creating }) {
 
 function Editor() {
   const navigate = useNavigate()
+  const { restaurante } = useRestaurante()
+  const idRestaurante = restaurante?.id_restaurante
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [plan, setPlan] = useState(null)
 
   useEffect(() => {
     apiClient
@@ -83,6 +126,27 @@ function Editor() {
       .then(({ data }) => setDocuments(data))
       .finally(() => setLoading(false))
   }, [])
+
+  // Determina si el restaurante activo puede usar las plantillas del editor
+  // (beneficio Pro/Enterprise). Sin restaurante o sin suscripción activa se
+  // trata como Básico: sin plantillas.
+  useEffect(() => {
+    if (!idRestaurante) return
+    let cancelled = false
+    apiClient
+      .get(`/restaurantes/${idRestaurante}/suscripcion`)
+      .then(({ data }) => {
+        if (!cancelled) setPlan(data.plan)
+      })
+      .catch(() => {
+        if (!cancelled) setPlan(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [idRestaurante])
+
+  const plantillasDisponibles = PLANES_CON_PLANTILLAS.has(plan)
 
   async function handleUseTemplate(template) {
     const { canvas, elements } = template.build()
@@ -176,9 +240,11 @@ function Editor() {
       {showTemplates && (
         <TemplateModal
           creating={creating}
+          plantillasDisponibles={plantillasDisponibles}
           onClose={() => setShowTemplates(false)}
           onPickBlank={() => navigate('/editor/new')}
           onPickTemplate={handleUseTemplate}
+          onPickLocked={() => navigate('/subscription')}
         />
       )}
     </DashboardShell>

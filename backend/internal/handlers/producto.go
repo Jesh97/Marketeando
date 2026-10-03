@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -11,11 +14,77 @@ import (
 )
 
 type ProductoHandler struct {
-	DB *pgxpool.Pool
+	DB        *pgxpool.Pool
+	UploadDir string
 }
 
-func NewProductoHandler(db *pgxpool.Pool) *ProductoHandler {
-	return &ProductoHandler{DB: db}
+func NewProductoHandler(db *pgxpool.Pool, uploadDir string) *ProductoHandler {
+	return &ProductoHandler{DB: db, UploadDir: uploadDir}
+}
+
+// Upload sube una foto de referencia para un producto y devuelve su URL
+// pública. No queda asociada a ningún producto todavía: el frontend debe
+// mandar la URL resultante como url_imagen al crear/actualizar el producto.
+// Reutiliza las mismas reglas de validación que el upload del editor
+// (extensionesPermitidas, randomFilename, maxUploadBytes en editor.go).
+func (h *ProductoHandler) Upload(c *gin.Context) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "falta el archivo (campo 'file')"})
+		return
+	}
+	if fileHeader.Size > maxUploadBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 10MB"})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
+		return
+	}
+	defer file.Close()
+
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(file, head)
+	contentType := http.DetectContentType(head[:n])
+
+	ext, ok := extensionesPermitidas[contentType]
+	if !ok {
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "formato no soportado (usa png, jpg, webp o gif)"})
+		return
+	}
+
+	name, err := randomFilename()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo generar el archivo"})
+		return
+	}
+	name += ext
+
+	dir := filepath.Join(h.UploadDir, "productos")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo preparar el almacenamiento"})
+		return
+	}
+
+	dest, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+	defer dest.Close()
+
+	if _, err := dest.Write(head[:n]); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+	if _, err := io.Copy(dest, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"url": "/uploads/productos/" + name})
 }
 
 const productoColumns = `id_producto, id_restaurante, id_categoria, nombre, descripcion, precio,

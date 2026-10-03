@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -202,6 +203,85 @@ func (h *MenuHandler) Publicar(c *gin.Context) {
 	}
 	if idRestauranteMenu != currentRestauranteID(c) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "no tienes acceso a este menú"})
+		return
+	}
+
+	var idVersionPublicada int
+	if err := h.DB.QueryRow(ctx, "SELECT publicar_menu($1)", idMenu).Scan(&idVersionPublicada); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"id_version_publicada": idVersionPublicada})
+}
+
+type publicarDisenoRequest struct {
+	IDDocumento int `json:"id_documento" binding:"required"`
+}
+
+// PublicarDiseno usa un diseño libre del Editor (editor_documents) como el
+// menú público: mete su HTML ya exportado y saneado (EditorHandler.Save
+// vuelve a pasarlo por sanitize.HTML antes de guardarlo, así que acá no hay
+// que volver a sanearlo) en el borrador actual y lo publica. PublicMenu.jsx
+// renderiza contenido.diseno_html en vez de la grilla de productos cuando
+// está presente.
+func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
+	idMenu, ok := menuIDFromParam(c)
+	if !ok {
+		return
+	}
+
+	var req publicarDisenoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	var idRestauranteMenu int
+	if err := h.DB.QueryRow(ctx, "SELECT id_restaurante FROM menu WHERE id_menu = $1", idMenu).Scan(&idRestauranteMenu); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "menú no encontrado"})
+		return
+	}
+	if idRestauranteMenu != currentRestauranteID(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no tienes acceso a este menú"})
+		return
+	}
+
+	var htmlContent string
+	var dataJSON []byte
+	err := h.DB.QueryRow(ctx,
+		"SELECT html_content, data_json FROM editor_documents WHERE id = $1 AND id_usuario = $2",
+		req.IDDocumento, currentUserID(c),
+	).Scan(&htmlContent, &dataJSON)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "diseño no encontrado"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var datos struct {
+		Canvas map[string]any `json:"canvas"`
+	}
+	_ = json.Unmarshal(dataJSON, &datos)
+
+	contenido := map[string]any{
+		"schema_version": 1,
+		"bloques":        []any{},
+		"tema":           map[string]any{},
+		"diseno_html":    htmlContent,
+		"diseno_canvas":  datos.Canvas,
+	}
+
+	if _, err := h.DB.Exec(ctx,
+		"UPDATE menu_version SET contenido = $1 WHERE id_menu = $2 AND estado = 'borrador'",
+		contenido, idMenu,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

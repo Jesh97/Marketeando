@@ -1,15 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-
-function LogoMark() {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" className="h-[26px] w-[26px] shrink-0">
-      <rect x="0" y="0" width="14" height="14" rx="4" fill="#D9A441" />
-      <rect x="18" y="0" width="14" height="14" rx="4" fill="#2F8F8A" />
-      <rect x="0" y="18" width="14" height="14" rx="4" fill="#fff" />
-      <rect x="18" y="18" width="14" height="14" rx="4" fill="#FD761A" />
-    </svg>
-  )
-}
+import logoMark from '../assets/logo-mark.png'
 
 function DashboardIcon() {
   return (
@@ -88,7 +78,7 @@ function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-navy p-4">
       <div className="flex items-center gap-2.5 px-2.5 pb-7 pt-2">
-        <LogoMark />
+        <img src={logoMark} alt="" className="h-[26px] w-[26px] shrink-0" />
         <span className="text-base font-extrabold text-white">Karta Kamay</span>
       </div>
 

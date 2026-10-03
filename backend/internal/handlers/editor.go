@@ -110,12 +110,14 @@ func randomFilename() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-// List devuelve los documentos del usuario autenticado, sin el data_json/html
-// completos (se piden aparte al abrir uno).
+// List devuelve los documentos del usuario autenticado. Incluye data_json
+// (lo usa el frontend para pintar una miniatura de cada diseño) pero no
+// html_content, que es más pesado y redundante: la miniatura se arma en el
+// cliente a partir de data_json con la misma función que exporta el editor.
 func (h *EditorHandler) List(c *gin.Context) {
 	rows, err := h.DB.Query(
 		c.Request.Context(),
-		`SELECT id, title, created_at, updated_at FROM editor_documents
+		`SELECT id, title, data_json, created_at, updated_at FROM editor_documents
 		 WHERE id_usuario = $1 ORDER BY updated_at DESC`,
 		currentUserID(c),
 	)
@@ -128,7 +130,7 @@ func (h *EditorHandler) List(c *gin.Context) {
 	documents := []models.EditorDocumentSummary{}
 	for rows.Next() {
 		var d models.EditorDocumentSummary
-		if err := rows.Scan(&d.ID, &d.Title, &d.CreatedAt, &d.UpdatedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.Title, &d.DataJSON, &d.CreatedAt, &d.UpdatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

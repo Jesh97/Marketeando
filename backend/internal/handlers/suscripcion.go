@@ -46,7 +46,7 @@ func (h *SuscripcionHandler) Get(c *gin.Context) {
 
 type suscribirRequest struct {
 	IDPlan     int    `json:"id_plan" binding:"required"`
-	MetodoPago string `json:"metodo_pago" binding:"required,oneof=tarjeta yape plin transferencia otro"`
+	MetodoPago string `json:"metodo_pago" binding:"required,oneof=tarjeta yape"`
 }
 
 // Suscribir simula el checkout: cierra la suscripción activa (si la hay),
@@ -117,9 +117,10 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 func (h *SuscripcionHandler) Facturas(c *gin.Context) {
 	rows, err := h.DB.Query(
 		c.Request.Context(),
-		`SELECT f.id_factura, f.monto, f.estado, f.periodo_inicio, f.periodo_fin, f.fecha_emision
+		`SELECT f.id_factura, f.monto, f.estado, f.periodo_inicio, f.periodo_fin, f.fecha_emision, p.nombre
 		 FROM factura f
 		 JOIN suscripcion s ON s.id_suscripcion = f.id_suscripcion
+		 JOIN plan p ON p.id_plan = s.id_plan
 		 WHERE s.id_restaurante = $1
 		 ORDER BY f.fecha_emision DESC`,
 		currentRestauranteID(c),
@@ -137,12 +138,13 @@ func (h *SuscripcionHandler) Facturas(c *gin.Context) {
 		PeriodoInicio time.Time `json:"periodo_inicio"`
 		PeriodoFin    time.Time `json:"periodo_fin"`
 		FechaEmision  time.Time `json:"fecha_emision"`
+		Plan          string    `json:"plan"`
 	}
 
 	facturas := []factura{}
 	for rows.Next() {
 		var f factura
-		if err := rows.Scan(&f.IDFactura, &f.Monto, &f.Estado, &f.PeriodoInicio, &f.PeriodoFin, &f.FechaEmision); err != nil {
+		if err := rows.Scan(&f.IDFactura, &f.Monto, &f.Estado, &f.PeriodoInicio, &f.PeriodoFin, &f.FechaEmision, &f.Plan); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

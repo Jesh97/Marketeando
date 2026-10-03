@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import logoMark from '../assets/logo-mark.png'
 
 const templates = [
   { name: 'Andino Clásico', bg: '#0B1C30', swatch: '#FD761A' },
@@ -48,12 +49,7 @@ function Onboarding() {
     <div className="flex min-h-svh flex-col bg-white">
       <div className="px-6 pt-7 sm:px-16">
         <div className="mb-7 flex items-center gap-2.5">
-          <svg viewBox="0 0 32 32" fill="none" className="h-[26px] w-[26px]">
-            <rect x="0" y="0" width="14" height="14" rx="4" fill="#D9A441" />
-            <rect x="18" y="0" width="14" height="14" rx="4" fill="#2F8F8A" />
-            <rect x="0" y="18" width="14" height="14" rx="4" fill="#0B1C30" />
-            <rect x="18" y="18" width="14" height="14" rx="4" fill="#FD761A" />
-          </svg>
+          <img src={logoMark} alt="" className="h-[26px] w-[26px]" />
           <span className="text-base font-extrabold">
             <span className="text-navy">Karta</span> <span className="text-orange">Kamay</span>
           </span>

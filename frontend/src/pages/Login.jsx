@@ -1,22 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
+import loginHero from '../assets/login-hero.png'
 import { useAuth } from '../context/AuthContext'
 import { useRestaurante } from '../context/RestauranteContext'
-
-function MenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-      <path
-        d="M6 3v18M6 3c-1.7 0-3 1.5-3 3.4V12c0 1 .8 1.8 1.8 1.8H6M6 3v18M18 3v18M18 3c1.7 0 3 1.3 3 3v13"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 function GoogleIcon() {
   return (
@@ -49,13 +36,6 @@ function FacebookIcon() {
   )
 }
 
-// Cuenta nueva: aún no existe un flujo para elegir nombre/subdominio del
-// restaurante (el Onboarding sigue siendo solo visual), así que se crea uno
-// por defecto para que Dashboard/Productos/Editor tengan algo real que mostrar.
-function generarSubdominioTemporal() {
-  return `restaurante-${Date.now().toString().slice(-8)}`
-}
-
 function Login() {
   const [mode, setMode] = useState('login')
   const isLogin = mode === 'login'
@@ -81,26 +61,11 @@ function Login() {
         await refresh()
         navigate('/dashboard')
       } else {
+        // El registro crea, en una sola llamada, la cuenta, su restaurante y
+        // un plan gratis activo (subdominio incluido, generado del lado del
+        // servidor) — ver AuthHandler.Registro en el backend.
         const { data } = await apiClient.post('/auth/registro', { correo, contrasena, nombre })
         setToken(data.token)
-
-        const { data: restaurante } = await apiClient.post('/restaurantes', {
-          nombre: 'Mi Restaurante',
-          subdominio: generarSubdominioTemporal(),
-        })
-
-        // Cuenta nueva = plan gratis por defecto (Subscription/Checkout siguen
-        // siendo solo visuales, así que sin esto nadie podría crear su primer
-        // menú: el backend exige una suscripción activa para eso).
-        const { data: planes } = await apiClient.get('/planes')
-        const planGratis = planes.find((p) => p.precio === 0) ?? planes[0]
-        if (planGratis) {
-          await apiClient.post(`/restaurantes/${restaurante.id_restaurante}/suscripcion`, {
-            id_plan: planGratis.id_plan,
-            metodo_pago: 'otro',
-          })
-        }
-
         await refresh()
         navigate('/onboarding')
       }
@@ -115,40 +80,12 @@ function Login() {
     <div className="flex min-h-svh items-center justify-center bg-gray-100 p-6">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-xl md:grid-cols-2">
         {/* Left panel */}
-        <div className="relative hidden min-h-[560px] flex-col justify-between overflow-hidden bg-gradient-to-br from-stone-400 via-stone-500 to-stone-700 p-8 md:flex">
-          <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/10 to-black/10" />
-
-          <div className="relative flex items-center gap-2 text-gray-900">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white">
-              <MenuIcon />
-            </span>
-            <span className="font-semibold">Kamay Menu</span>
-          </div>
-
-          <div className="relative -mr-8 grid grid-cols-2 gap-3 self-end">
-            <div className="col-span-2 rounded-lg bg-white/70 p-4 shadow-sm backdrop-blur-sm">
-              <p className="text-lg font-serif text-gray-700">Menu Serif</p>
-              <div className="mt-2 h-2 w-3/4 rounded bg-gray-300/70" />
-              <p className="mt-3 text-sm text-gray-500">Body Sans-Serif</p>
-              <div className="mt-2 h-2 w-2/3 rounded bg-gray-300/70" />
-            </div>
-            <div className="h-12 rounded-lg bg-rose-200/70" />
-            <div className="h-12 rounded-lg bg-slate-300/70" />
-          </div>
-
-          <div className="relative">
-            <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-white/90" />
-          </div>
-
-          <div className="relative">
-            <h2 className="text-2xl font-bold leading-tight text-gray-900">
-              Diseña menús que se venden solos.
-            </h2>
-            <p className="mt-3 max-w-xs text-sm text-gray-700">
-              Únete a miles de restauradores que crean menús digitales e impresos
-              impresionantes y de alta conversión en minutos.
-            </p>
-          </div>
+        <div className="relative hidden min-h-[560px] overflow-hidden md:block">
+          <img
+            src={loginHero}
+alt="Karta Kamay"
+            className="h-full w-full object-cover"
+          />
         </div>
 
         {/* Right panel */}

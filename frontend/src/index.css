@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Poppins:wght@400;600;700&family=Nunito:wght@400;600;700&family=Work+Sans:wght@400;600;700&family=Raleway:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Merriweather:wght@400;700&family=Lora:wght@400;600;700&family=PT+Serif:wght@400;700&family=Oswald:wght@400;600;700&family=Bebas+Neue&family=Anton&family=Abril+Fatface&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Lobster&family=Noto+Serif+KR:wght@400;700;900&display=swap');
 @import 'tailwindcss';
 
@@ -9,10 +10,37 @@
   --color-orange: #fd761a;
   --color-orange-dark: #e4650e;
   --color-orange-light: #ffe8d6;
+  /* Landing page – Karta Kamay warm palette */
+  --color-cream-base: #FFF8EC;
+  --color-cream-strong: #FFEFD2;
+  --color-cream-light: #FFFDF9;
+  --color-brown-deep: #4A2420;
+  --color-brown-body: #5E3733;
+  --color-orange-action: #E8702A;
+  --color-terracotta-hover: #C1622B;
+  --color-terracotta-dark: #8E2B1E;
+  --color-navy-dark: #1F2740;
+  --color-border-warm: #EBD9BF;
+  --color-card-beige: #F6E1B3;
+  --color-card-teal: #DBE9E5;
+  --color-card-salmon: #F0C8B8;
+  --color-pill-warm: #FFE8D6;
+  --color-peach-underline: #FFD1A0;
   --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-jakarta: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
 }
 
 body {
   @apply bg-white text-[#6b6375] antialiased dark:bg-[#16171d] dark:text-[#9ca3af];
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }

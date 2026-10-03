@@ -18,7 +18,7 @@ func Load() Config {
 
 	return Config{
 		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/marketeando?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:71097191@localhost:5432/Marketing?sslmode=disable"),
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me"),
 		UploadDir:   getEnv("UPLOAD_DIR", "./uploads"),
 	}

@@ -61,6 +61,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 				mio.PUT("", restauranteHandler.Update)
 				mio.POST("/logo", restauranteHandler.SubirLogo)
 				mio.GET("/dashboard", restauranteHandler.Dashboard)
+				mio.POST("/onboarding/:paso", restauranteHandler.MarcarPasoOnboarding)
 
 				categorias := mio.Group("/categorias")
 				{

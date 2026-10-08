@@ -21,6 +21,8 @@ func NewPublicHandler(db *pgxpool.Pool) *PublicHandler {
 // MenuPorSubdominio es lo que resuelve <subdominio>.kartakamay.app: el
 // restaurante, su menú principal publicado y los productos que referencia.
 func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
+	c.Header("Pragma", "no-cache")
 	subdominio := c.Param("subdominio")
 	ctx := c.Request.Context()
 
@@ -72,6 +74,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 		IDProducto  int      `json:"id_producto"`
 		IDCategoria *int     `json:"id_categoria"`
 		Categoria   *string  `json:"categoria"`
+		Orden       *int     `json:"orden"`
 		Nombre      string   `json:"nombre"`
 		Descripcion *string  `json:"descripcion"`
 		Precio      float64  `json:"precio"`
@@ -81,7 +84,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 	}
 
 	rows, err := h.DB.Query(ctx,
-		`SELECT p.id_producto, p.id_categoria, cat.nombre, p.nombre, p.descripcion, p.precio,
+		`SELECT p.id_producto, p.id_categoria, cat.nombre, cat.orden, p.nombre, p.descripcion, p.precio,
 		        p.url_imagen, p.agotado,
 		        COALESCE(array_agg(e.codigo) FILTER (WHERE e.codigo IS NOT NULL), '{}')
 		 FROM producto p
@@ -102,7 +105,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 	productos := []productoPublico{}
 	for rows.Next() {
 		var p productoPublico
-		if err := rows.Scan(&p.IDProducto, &p.IDCategoria, &p.Categoria, &p.Nombre, &p.Descripcion,
+		if err := rows.Scan(&p.IDProducto, &p.IDCategoria, &p.Categoria, &p.Orden, &p.Nombre, &p.Descripcion,
 			&p.Precio, &p.URLImagen, &p.Agotado, &p.Etiquetas); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

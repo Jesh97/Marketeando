@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useRestaurante } from '../context/RestauranteContext'
 import { documentToHtml } from '../lib/editorExport'
+import MenuListBlock, { applyFlow } from '../components/MenuListBlock'
 
 const DEFAULT_CANVAS = { width: 800, height: 1000, background: '#ffffff' }
 const MAX_HISTORY = 100
@@ -76,6 +77,14 @@ const FONT_CATEGORIES = [
 
 const FONT_OPTIONS = FONT_CATEGORIES.flatMap((c) => c.fonts)
 
+const DEFAULT_MENU_LIST = {
+  categoryId: null, categorySlot: null, showPrice: true, showDescription: true, showTags: false,
+  showAgotadoBadge: true, nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 700, color: '#111827' },
+  priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: '#FD761A' },
+  descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748B' }, itemGap: 10,
+  showDivider: true, dividerColor: '#E2E8F0',
+}
+
 // Recortes disponibles para imágenes (clip-path CSS), al estilo "imagen
 // dentro de una forma" de Canva. 'rect' es el default y usa borderRadius
 // en vez de clip-path, para poder seguir dando esquinas redondeadas.
@@ -112,13 +121,14 @@ const STICKERS = [
   '⭐', '🔥', '✨', '❤️',
 ]
 
-const LAYER_ICONS = { text: 'T', image: '🖼', rect: '▭', ellipse: '◯' }
+const LAYER_ICONS = { text: 'T', image: '🖼', rect: '▭', ellipse: '◯', menu_list: '☷' }
 
 function layerLabel(el) {
   if (el.type === 'text') return el.text?.trim() ? el.text.slice(0, 24) : 'Texto'
   if (el.type === 'image') return 'Imagen'
   if (el.type === 'rect') return 'Rectángulo'
   if (el.type === 'ellipse') return 'Círculo'
+  if (el.type === 'menu_list') return 'Bloque de menú'
   return el.type
 }
 
@@ -213,6 +223,10 @@ function createShapeElement(elements, type) {
     opacity: 100,
     shadow: 0,
   }
+}
+
+function createMenuListElement(elements, categoryId = null) {
+  return { ...structuredClone(DEFAULT_MENU_LIST), id: newId(), type: 'menu_list', categoryId, x: 80, y: 180, width: 420, height: 120, rotation: 0, zIndex: nextZIndex(elements), opacity: 100 }
 }
 
 // Sticker = un elemento de texto normal con un emoji grande: reutiliza
@@ -342,7 +356,13 @@ function EditorCanvas() {
   const [uploading, setUploading] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [productos, setProductos] = useState([])
+  const [categorias, setCategorias] = useState([])
+  const [menuDataError, setMenuDataError] = useState('')
+  const [measuredHeights, setMeasuredHeights] = useState({})
+  const flow = useMemo(() => applyFlow(elements, measuredHeights), [elements, measuredHeights])
+  const onMenuListHeight = useCallback((id, height) => setMeasuredHeights((prev) => prev[id] === height ? prev : { ...prev, [id]: height }), [])
   const [loadingProductos, setLoadingProductos] = useState(false)
+  const [missingCategorySlots, setMissingCategorySlots] = useState(0)
   const [showProductPicker, setShowProductPicker] = useState(false)
   const [showStickerPicker, setShowStickerPicker] = useState(false)
 
@@ -465,6 +485,7 @@ function EditorCanvas() {
         setTitle(data.title)
         setCanvas(data.data_json?.canvas ?? DEFAULT_CANVAS)
         resetElements(data.data_json?.elements ?? [])
+        setMissingCategorySlots(data.data_json?.missingCategorySlots ?? 0)
         setLoading(false)
       })
       .catch(() => {
@@ -501,11 +522,18 @@ function EditorCanvas() {
     if (!idRestaurante) return
     let cancelled = false
     setLoadingProductos(true)
-    apiClient
-      .get(`/restaurantes/${idRestaurante}/productos`)
-      .then(({ data }) => {
-        if (!cancelled) setProductos(data)
+    Promise.all([
+      apiClient.get(`/restaurantes/${idRestaurante}/productos`),
+      apiClient.get(`/restaurantes/${idRestaurante}/categorias`),
+    ])
+      .then(([productsResponse, categoriesResponse]) => {
+        if (!cancelled) {
+          setProductos(productsResponse.data)
+          setCategorias(categoriesResponse.data.filter((category) => category.activo).sort((a, b) => a.orden - b.orden))
+          setMenuDataError('')
+        }
       })
+      .catch(() => { if (!cancelled) setMenuDataError('No se pudieron cargar los platos y categorías. Vuelve a cargar el editor.') })
       .finally(() => {
         if (!cancelled) setLoadingProductos(false)
       })
@@ -668,6 +696,7 @@ function EditorCanvas() {
     setSaveState('saving')
     try {
       const savedId = await guardarDocumento()
+      if (idRestaurante) await apiClient.post(`/restaurantes/${idRestaurante}/onboarding/diseno-personalizado`)
       setSaveState('saved')
       if (isNew) navigate(`/editor/${savedId}`, { replace: true })
       setTimeout(() => setSaveState('idle'), 1500)
@@ -728,7 +757,7 @@ function EditorCanvas() {
     )
   }
 
-  const sortedElements = [...elements].filter((el) => !el.hidden).sort((a, b) => a.zIndex - b.zIndex)
+  const sortedElements = flow.elements.filter((el) => !el.hidden).sort((a, b) => a.zIndex - b.zIndex)
   const layerRows = [...elements].sort((a, b) => b.zIndex - a.zIndex)
   const moveableTarget = targetEls.length > 1 ? targetEls : (targetEls[0] ?? null)
   const isGroupSelection = targetEls.length > 1
@@ -780,6 +809,9 @@ function EditorCanvas() {
         </div>
       </header>
 
+      {missingCategorySlots > 0 && <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">Algunos bloques de la plantilla quedaron ocultos porque faltan categorías. Crea esas categorías o agrega un bloque de menú.</p>}
+      {menuDataError && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{menuDataError}</p>}
+
       <div className="flex flex-1 overflow-hidden">
         <aside className="flex w-16 shrink-0 flex-col items-center gap-2 border-r border-gray-200 bg-white py-4">
           <IconButton title="Añadir texto" onClick={() => addElement(createTextElement)}>
@@ -790,6 +822,9 @@ function EditorCanvas() {
           </IconButton>
           <IconButton title="Añadir círculo" onClick={() => addElement((prev) => createShapeElement(prev, 'ellipse'))}>
             ◯
+          </IconButton>
+          <IconButton title="Bloque de menú" onClick={() => addElement((prev) => createMenuListElement(prev, categorias[0]?.id_categoria ?? null))}>
+            ☷
           </IconButton>
           <IconButton title="Subir imagen" onClick={() => fileInputRef.current?.click()}>
             🖼
@@ -913,7 +948,7 @@ function EditorCanvas() {
           <div
             style={{
               width: canvas.width,
-              height: canvas.height,
+              height: Math.max(canvas.height, flow.height),
               background: canvasBackgroundStyle(canvas),
               overflow: 'hidden',
             }}
@@ -936,6 +971,9 @@ function EditorCanvas() {
                   setEditingTextId(null)
                   updateElement(el.id, { text })
                 }}
+                productos={productos}
+                categorias={categorias}
+                onMenuListHeight={onMenuListHeight}
               />
             ))}
 
@@ -953,7 +991,7 @@ function EditorCanvas() {
                 liveChange.current = { x: left, y: top }
               }}
               onDragEnd={() => {
-                if (selectedId && liveChange.current) updateElement(selectedId, liveChange.current)
+                if (selectedId && liveChange.current) updateElement(selectedId, { ...liveChange.current, y: liveChange.current.y - (flow.elements.find((el) => el.id === selectedId)?._flowOffset || 0) })
                 liveChange.current = null
               }}
               onDragGroup={({ events }) => {
@@ -965,9 +1003,10 @@ function EditorCanvas() {
               onDragGroupEnd={({ events }) => {
                 setElements((prev) => {
                   let next = prev
-                  events.forEach(({ target, left, top }) => {
-                    const elId = target.dataset.elId
-                    next = next.map((el) => (el.id === elId ? { ...el, x: left, y: top } : el))
+                    events.forEach(({ target, left, top }) => {
+                      const elId = target.dataset.elId
+                      const offset = flow.elements.find((el) => el.id === elId)?._flowOffset || 0
+                      next = next.map((el) => (el.id === elId ? { ...el, x: left, y: top - offset } : el))
                   })
                   return next
                 })
@@ -981,7 +1020,7 @@ function EditorCanvas() {
                 liveChange.current = { x: drag.left, y: drag.top, width, height }
               }}
               onResizeEnd={() => {
-                if (selectedId && liveChange.current) updateElement(selectedId, liveChange.current)
+                if (selectedId && liveChange.current) updateElement(selectedId, { ...liveChange.current, y: liveChange.current.y - (flow.elements.find((el) => el.id === selectedId)?._flowOffset || 0) })
                 liveChange.current = null
               }}
               onRotate={({ target, drag, rotation }) => {
@@ -1406,6 +1445,33 @@ function EditorCanvas() {
             </div>
           )}
 
+          {selectedIds.size === 1 && selected?.type === 'menu_list' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">Bloque de menú</h3>
+              <div>
+                <label className="text-xs font-medium text-gray-500">Categoría</label>
+                <select value={selected.categoryId ?? ''} onChange={(e) => updateElement(selected.id, { categoryId: e.target.value ? Number(e.target.value) : null, categorySlot: null })} className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm">
+                  <option value="">Todas las categorías</option>
+                  {selected.categoryId && !categorias.some((cat) => Number(cat.id_categoria) === Number(selected.categoryId)) && <option value={selected.categoryId}>Categoría no disponible</option>}
+                  {categorias.map((cat) => <option key={cat.id_categoria} value={cat.id_categoria}>{cat.nombre}</option>)}
+                </select>
+                {selected.categoryId && !categorias.some((cat) => Number(cat.id_categoria) === Number(selected.categoryId)) && <p className="mt-1 text-xs text-red-600">Categoría no disponible. Elige otra.</p>}
+              </div>
+              <div className="space-y-2">
+                {[['showPrice', 'Mostrar precio'], ['showDescription', 'Mostrar descripción'], ['showTags', 'Mostrar etiquetas'], ['showAgotadoBadge', 'Mostrar badge de agotado']].map(([key, label]) => <label key={key} className="flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" checked={selected[key] !== false} onChange={(e) => updateElement(selected.id, { [key]: e.target.checked })} />{label}</label>)}
+              </div>
+              {[['nameStyle', 'Nombre'], ['priceStyle', 'Precio'], ['descStyle', 'Descripción']].map(([key, label]) => <div key={key} className="space-y-2 rounded-md border border-gray-100 p-2">
+                <p className="text-xs font-semibold text-gray-600">{label}</p>
+                <div className="grid grid-cols-[1fr_72px] gap-2"><select value={selected[key]?.fontFamily ?? 'Inter, sans-serif'} onChange={(e) => updateElement(selected.id, { [key]: { ...selected[key], fontFamily: e.target.value } })} className="min-w-0 rounded border border-gray-200 px-1 py-1 text-xs">{FONT_OPTIONS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}</select><input aria-label={`Tamaño de ${label.toLowerCase()}`} type="number" min="8" max="60" value={selected[key]?.fontSize ?? 14} onChange={(e) => updateElement(selected.id, { [key]: { ...selected[key], fontSize: Number(e.target.value) } })} className="w-full rounded border border-gray-200 px-1 py-1 text-xs" /></div>
+                <div className="grid grid-cols-[1fr_48px] items-center gap-2"><select value={selected[key]?.fontWeight ?? '400'} onChange={(e) => updateElement(selected.id, { [key]: { ...selected[key], fontWeight: e.target.value } })} className="rounded border border-gray-200 px-1 py-1 text-xs"><option value="400">Normal</option><option value="600">Semi-negrita</option><option value="700">Negrita</option></select><input aria-label={`Color de ${label.toLowerCase()}`} type="color" value={selected[key]?.color ?? '#111827'} onChange={(e) => updateElement(selected.id, { [key]: { ...selected[key], color: e.target.value } })} className="h-7 w-full rounded border border-gray-200" /></div>
+              </div>)}
+              <label className="block text-xs text-gray-600">Separación entre platos <input type="range" min="0" max="32" value={selected.itemGap ?? 10} onChange={(e) => updateElement(selected.id, { itemGap: Number(e.target.value) })} className="mt-2 w-full accent-orange-500" /></label>
+              <label className="flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" checked={selected.showDivider !== false} onChange={(e) => updateElement(selected.id, { showDivider: e.target.checked })} />Mostrar línea divisoria</label>
+              {selected.showDivider !== false && <input aria-label="Color de línea divisoria" type="color" value={selected.dividerColor ?? '#E2E8F0'} onChange={(e) => updateElement(selected.id, { dividerColor: e.target.value })} className="h-8 w-full rounded border border-gray-200" />}
+              <a href="/products" target="_blank" rel="noreferrer" className="block rounded-md bg-orange-50 px-3 py-2 text-center text-xs font-semibold text-orange-700">Editar platos</a>
+            </div>
+          )}
+
           {selectedIds.size === 1 && (selected?.type === 'rect' || selected?.type === 'ellipse') && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-900">Forma</h3>
@@ -1658,7 +1724,7 @@ function EditorCanvas() {
   )
 }
 
-function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onStartEditText, onCommitText }) {
+function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onStartEditText, onCommitText, productos = [], categorias = [], onMenuListHeight }) {
   const style = {
     position: 'absolute',
     left: el.x,
@@ -1677,6 +1743,12 @@ function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onSta
   function handleMouseDown(e) {
     e.stopPropagation()
     onSelect(e.shiftKey)
+  }
+
+  if (el.type === 'menu_list') {
+    return <div ref={registerRef} data-el-id={el.id} style={{ ...style, height: 'auto', padding: 4 }} onMouseDown={handleMouseDown}>
+      {el.categoryId && !categorias.some((category) => Number(category.id_categoria) === Number(el.categoryId)) ? <p style={{ color: '#B91C1C', fontSize: 12 }}>Categoría no disponible</p> : <MenuListBlock element={el} productos={productos} categorias={categorias} onHeight={onMenuListHeight} />}
+    </div>
   }
 
   if (el.type === 'text') {

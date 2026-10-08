@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import apiClient from '../api/client'
+import DesignRenderer from '../components/DesignRenderer'
 
 const SWATCHES = ['#F2C57C', '#C97B5F', '#7AACA6', '#D9A441', '#8B6BAE', '#E4A6A0']
 
@@ -75,6 +76,15 @@ function PublicMenu() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [active, setActive] = useState(null)
+  const [designHeight, setDesignHeight] = useState(0)
+  const [viewportWidth, setViewportWidth] = useState(768)
+
+  useEffect(() => {
+    const resize = () => setViewportWidth(window.innerWidth)
+    resize()
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [])
 
   useEffect(() => {
     apiClient
@@ -111,6 +121,24 @@ function PublicMenu() {
   // al ancho de la pantalla con el mismo truco svg+foreignObject que usa la
   // miniatura de plantillas del Editor, sin importar el tamaño del lienzo
   // original (800x1000, 1080x1920, etc.).
+  if (data.contenido?.diseno_data) {
+    const design = data.contenido.diseno_data
+    const rawCanvas = design.canvas ?? { width: 800, height: 1000 }
+    const designWidth = Math.max(100, Math.min(4000, Number.isFinite(Number(rawCanvas.width)) ? Number(rawCanvas.width) : 800))
+    const baseHeight = Math.max(100, Math.min(4000, Number.isFinite(Number(rawCanvas.height)) ? Number(rawCanvas.height) : 1000))
+    const renderHeight = Math.max(baseHeight, designHeight || baseHeight)
+    const scale = Math.max(0.05, Math.min(768, viewportWidth) / designWidth)
+    const categoriasDiseño = [...new Map(data.productos.filter((p) => p.id_categoria != null).map((p) => [p.id_categoria, { id_categoria: p.id_categoria, nombre: p.categoria, orden: p.orden ?? 0 }])).values()].sort((a, b) => a.orden - b.orden)
+    return <div className="min-h-svh bg-[#F6F8FC]">
+      <div style={{ width: 'min(100%, 768px)', height: renderHeight * scale, margin: '0 auto', overflow: 'hidden' }}>
+        <div style={{ width: designWidth, height: renderHeight, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <DesignRenderer design={design} productos={data.productos} categorias={categoriasDiseño} onCanvasHeight={setDesignHeight} scale={scale} />
+        </div>
+      </div>
+      <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8]"><p className="text-xs">Menú digital creado con <span className="font-bold text-white">Karta Kamay</span></p></div>
+    </div>
+  }
+
   if (data.contenido?.diseno_html) {
     const disenoCanvas = data.contenido.diseno_canvas ?? { width: 800, height: 1000 }
     return (

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -205,6 +206,10 @@ func (h *MenuHandler) Publicar(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "no tienes acceso a este menú"})
 		return
 	}
+	if !h.tieneProductosActivos(ctx, idRestauranteMenu) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Agrega al menos 1 producto para publicar"})
+		return
+	}
 
 	var idVersionPublicada int
 	if err := h.DB.QueryRow(ctx, "SELECT publicar_menu($1)", idMenu).Scan(&idVersionPublicada); err != nil {
@@ -248,6 +253,10 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "no tienes acceso a este menú"})
 		return
 	}
+	if !h.tieneProductosActivos(ctx, idRestauranteMenu) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Agrega al menos 1 producto para publicar"})
+		return
+	}
 
 	var htmlContent string
 	var dataJSON []byte
@@ -275,6 +284,7 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 		"tema":           map[string]any{},
 		"diseno_html":    htmlContent,
 		"diseno_canvas":  datos.Canvas,
+		"diseno_data":    json.RawMessage(dataJSON),
 	}
 
 	if _, err := h.DB.Exec(ctx,
@@ -292,4 +302,12 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"id_version_publicada": idVersionPublicada})
+}
+
+func (h *MenuHandler) tieneProductosActivos(ctx context.Context, idRestaurante int) bool {
+	var cantidad int
+	if err := h.DB.QueryRow(ctx, "SELECT count(*) FROM producto WHERE id_restaurante = $1 AND activo", idRestaurante).Scan(&cantidad); err != nil {
+		return false
+	}
+	return cantidad > 0
 }

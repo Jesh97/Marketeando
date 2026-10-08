@@ -61,34 +61,16 @@ function buildMenuElegante() {
     })
     push({ type: 'rect', x: 260, y: y + 16, width: 480, height: 2, fill: GOLD, opacity: 55 })
   }
+  let dishIndex = 0
   function dish(y, name, desc, tags) {
-    push({
-      type: 'text',
-      text: name,
-      x: 60,
-      y,
-      width: 540,
-      height: 26,
-      fontFamily: '"Playfair Display", serif',
-      fontSize: 17,
-      fontWeight: '700',
-      color: TEXT_LIGHT,
-      align: 'left',
-    })
-    tags.forEach((emoji, i) => sticker(emoji, 620 + i * 34, y - 2, 30))
-    push({
-      type: 'text',
-      text: desc,
-      x: 60,
-      y: y + 28,
-      width: 670,
-      height: 40,
-      fontFamily: 'Inter, sans-serif',
-      fontSize: 13,
-      fontWeight: '400',
-      color: TEXT_MUTED,
-      align: 'left',
-    })
+    const categorySlot = Math.floor(dishIndex++ / 2)
+    if (dishIndex % 2 === 0) return
+    push({ type: 'menu_list', categoryId: null, categorySlot, x: 60, y, width: 680, height: 150,
+      showPrice: true, showDescription: true, showTags: true, showAgotadoBadge: true,
+      nameStyle: { fontFamily: '"Playfair Display", serif', fontSize: 17, fontWeight: 700, color: TEXT_LIGHT },
+      priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: GOLD },
+      descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 13, color: TEXT_MUTED }, itemGap: 8,
+      showDivider: true, dividerColor: '#514938' })
   }
 
   // Franja superior: acá el usuario reemplaza con sus propias fotos (con el
@@ -621,23 +603,12 @@ function buildTableroAhumado() {
   card(690, 156, 430, 700)
   sectionTitle(720, 180, 370, 'HAMBURGUESAS DE HIERRO')
 
-  text(720, 236, 260, 22, 'Clásica OG', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 262, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
-  text(720, 266, 90, 12, 'FAVORITA', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
-  text(1000, 236, 90, 24, 'S/ 11.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 290, 370, 'Carne aplastada, queso americano, cebolla encurtida, salsa especial')
-
-  text(720, 340, 260, 22, 'Ahumada BBQ', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 366, width: 80, height: 20, fill: AMBER, borderRadius: 10 })
-  text(720, 370, 80, 12, 'NUEVO', { fontSize: 9, fontWeight: '700', color: '#121316', align: 'center' })
-  text(1000, 340, 90, 24, 'S/ 13.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 394, 370, 'Doble carne, tocino ahumado, aros de cebolla, salsa BBQ casera')
-
-  text(720, 444, 260, 22, 'Portobello vegetariana', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 470, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
-  text(720, 474, 90, 12, 'VEG 🌱', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
-  text(1000, 444, 90, 24, 'S/ 10.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 498, 370, 'Portobello a la plancha, queso suizo, rúcula, alioli de ajo asado')
+  push({ type: 'menu_list', categoryId: null, categorySlot: 0, x: 720, y: 236, width: 370, height: 520,
+    showPrice: true, showDescription: true, showTags: true, showAgotadoBadge: true,
+    nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: TEXT_LIGHT },
+    priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: AMBER },
+    descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 12, color: TEXT_MUTED }, itemGap: 12,
+    showDivider: true, dividerColor: '#484044' })
 
   push({ type: 'rect', x: 720, y: 780, width: 370, height: 50, fill: CARD_HIGH, borderRadius: 8 })
   text(736, 790, 220, 16, 'PAN SIN GLUTEN', { fontSize: 11, fontWeight: '700', color: AMBER, letterSpacing: 1 })
@@ -648,16 +619,19 @@ function buildTableroAhumado() {
   card(1140, 156, 410, 700)
   sectionTitle(1170, 180, 350, 'GUARNICIONES')
 
-  priceRow(1170, 236, 350, 'Papas rústicas', 'S/ 6.00')
-  priceRow(1170, 278, 350, 'Aros de cebolla crocantes', 'S/ 7.00')
-  priceRow(1170, 320, 350, 'Ensalada de col', 'S/ 5.00')
-  priceRow(1170, 362, 350, 'Maíz asado con chile', 'S/ 6.50')
+  push({ type: 'menu_list', categoryId: null, categorySlot: 1, x: 1170, y: 236, width: 350, height: 160,
+    showPrice: true, showDescription: false, showTags: false, showAgotadoBadge: true,
+    nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: TEXT_LIGHT },
+    priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700, color: AMBER },
+    descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 11, color: TEXT_MUTED }, itemGap: 6, showDivider: true, dividerColor: '#484044' })
 
   push({ type: 'rect', x: 1170, y: 410, width: 350, height: 1, fill: AMBER, opacity: 25 })
   text(1170, 422, 300, 20, 'BEBIDAS', { fontSize: 13, fontWeight: '700', color: AMBER, letterSpacing: 1 })
-  priceRow(1170, 450, 350, 'Limonada de romero', 'S/ 7.00')
-  priceRow(1170, 492, 350, 'Cerveza artesanal', 'S/ 12.00')
-  priceRow(1170, 534, 350, 'Té helado de durazno', 'S/ 6.00')
+  push({ type: 'menu_list', categoryId: null, categorySlot: 2, x: 1170, y: 450, width: 350, height: 250,
+    showPrice: true, showDescription: false, showTags: false, showAgotadoBadge: true,
+    nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: TEXT_LIGHT },
+    priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700, color: AMBER },
+    descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 11, color: TEXT_MUTED }, itemGap: 6, showDivider: true, dividerColor: '#484044' })
 
   push({
     type: 'rect',

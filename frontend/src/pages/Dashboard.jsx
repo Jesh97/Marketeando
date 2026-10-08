@@ -63,13 +63,22 @@ function Dashboard() {
   const [qrDataUrl, setQrDataUrl] = useState(null)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState('')
+  const [statsError, setStatsError] = useState('')
+  const productCount = stats?.productos_activos ?? 0
+  const onboardingSteps = [
+    { label: 'Agrega al menos 5 productos', done: productCount >= 5, to: '/products', action: 'Agregar producto' },
+    { label: 'Personaliza el diseño del menú', done: Boolean(stats?.design_customized_at), to: '/editor', action: 'Abrir editor' },
+    { label: 'Publica el menú', done: Boolean(stats?.menu_publicado), action: 'Publicar' },
+    { label: 'Descarga el QR', done: Boolean(stats?.qr_downloaded_at), action: 'Descargar QR' },
+  ]
+  const onboardingDone = onboardingSteps.filter((step) => step.done).length
 
   useEffect(() => {
     if (!restaurante) return
     apiClient
       .get(`/restaurantes/${restaurante.id_restaurante}/dashboard`)
-      .then(({ data }) => setStats(data))
-      .catch(() => setStats(null))
+      .then(({ data }) => { setStats(data); setStatsError('') })
+      .catch(() => { setStats(null); setStatsError('No se pudieron cargar los datos del menú. Intenta actualizar la página.') })
   }, [restaurante])
 
   const primerNombre = usuario?.nombre?.split(' ')[0] ?? ''
@@ -109,11 +118,14 @@ function Dashboard() {
   }
 
   const descargarQr = () => {
-    if (!qrDataUrl || !subdominio) return
+    if (!qrDataUrl || !subdominio || !stats?.menu_publicado) return
     const a = document.createElement('a')
     a.href = qrDataUrl
     a.download = `qr-menu-${subdominio}.png`
     a.click()
+    apiClient.post(`/restaurantes/${restaurante.id_restaurante}/onboarding/qr-descargado`)
+      .then(({ data }) => setStats((prev) => prev ? { ...prev, qr_downloaded_at: data.qr_downloaded_at } : prev))
+      .catch(() => setStatsError('El QR se descargó, pero no pudimos guardar este paso.'))
   }
 
   const publicarMenu = async () => {
@@ -168,6 +180,21 @@ function Dashboard() {
         </div>
       </div>
 
+      {statsError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-[#DC2626]">{statsError}</p>}
+
+      {stats && onboardingDone < onboardingSteps.length && (
+        <section className="mb-6 rounded-[14px] border border-[#E2E8F0] bg-white p-5 sm:p-[22px]" aria-label="Checklist de inicio">
+          <div><h2 className="text-base font-bold text-navy">Deja tu menú listo para tus clientes</h2><p className="mt-1 text-sm text-[#4A5568]">{onboardingDone} de 4 completados</p></div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EEF3FF]"><div className="h-full rounded-full bg-orange transition-all" style={{ width: `${onboardingDone * 25}%` }} /></div>
+          <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+            {onboardingSteps.map((step, index) => <li key={step.label} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] p-3">
+              <span className={`text-sm font-semibold ${step.done ? 'text-[#16A34A]' : 'text-navy'}`}>{step.done ? '✓' : `${index + 1}.`} {step.label}</span>
+              {!step.done && (index === 2 ? <button type="button" onClick={publicarMenu} disabled={publishing || productCount === 0 || !stats?.id_menu_principal} className="text-xs font-bold text-orange-dark disabled:cursor-not-allowed disabled:opacity-50">{step.action}</button> : index === 3 ? <button type="button" onClick={descargarQr} disabled={!stats?.menu_publicado || !qrDataUrl} className="text-xs font-bold text-orange-dark disabled:cursor-not-allowed disabled:opacity-50">{step.action}</button> : <Link to={step.to} className="text-xs font-bold text-orange-dark">{step.action}</Link>)}
+            </li>)}
+          </ol>
+        </section>
+      )}
+
       <div className="mb-6 grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
           <div className="flex items-center justify-between">
@@ -193,12 +220,12 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="rounded-[14px] border border-[#FCA5A5] bg-white p-[22px]">
+        <div className={`rounded-[14px] border bg-white p-[22px] ${stats?.productos_agotados > 0 ? 'border-[#FCA5A5]' : 'border-[#E2E8F0]'}`}>
           <div className="flex items-center justify-between">
             <span className="text-[13.5px] font-semibold text-[#4A5568]">Platos Agotados Hoy</span>
-            <AlertIcon />
+            {stats?.productos_agotados > 0 && <AlertIcon />}
           </div>
-          <div className="mt-2.5 text-[34px] font-extrabold text-[#DC2626]">
+          <div className={`mt-2.5 text-[34px] font-extrabold ${stats?.productos_agotados > 0 ? 'text-[#DC2626]' : 'text-navy'}`}>
             {stats ? stats.productos_agotados : '—'}
           </div>
           <Link
@@ -295,7 +322,7 @@ function Dashboard() {
           <button
             type="button"
             onClick={publicarMenu}
-            disabled={publishing || !stats?.id_menu_principal}
+            disabled={publishing || !stats?.id_menu_principal || (!stats?.menu_publicado && productCount === 0)}
             className="mt-3.5 h-10 w-full rounded-[9px] bg-orange text-[13px] font-semibold text-white hover:bg-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {publishing
@@ -304,6 +331,7 @@ function Dashboard() {
                 ? 'Publicar cambios'
                 : 'Publicar menú'}
           </button>
+          {!stats?.menu_publicado && productCount === 0 && <p className="mt-2 text-xs text-[#8A94A6]">Agrega al menos 1 producto para publicar</p>}
           {publishError && <p className="mt-2 text-xs text-[#DC2626]">{publishError}</p>}
         </div>
 
@@ -319,11 +347,12 @@ function Dashboard() {
           <button
             type="button"
             onClick={descargarQr}
-            disabled={!qrDataUrl}
+            disabled={!qrDataUrl || !stats?.menu_publicado}
             className="h-9 w-full rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Descargar
           </button>
+          {!stats?.menu_publicado && <p className="mt-2 text-center text-xs text-[#8A94A6]">Publica tu menú para poder descargar el QR</p>}
         </div>
       </div>
     </DashboardShell>

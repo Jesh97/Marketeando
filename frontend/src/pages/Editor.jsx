@@ -149,12 +149,20 @@ function Editor() {
   const plantillasDisponibles = PLANES_CON_PLANTILLAS.has(plan)
 
   async function handleUseTemplate(template) {
-    const { canvas, elements } = template.build()
     setCreating(true)
     try {
+      const { canvas, elements: rawElements } = template.build()
+      const categoriesResponse = idRestaurante
+        ? await apiClient.get(`/restaurantes/${idRestaurante}/categorias`)
+        : { data: [] }
+      const categories = categoriesResponse.data.filter((category) => category.activo).sort((a, b) => a.orden - b.orden)
+      const missingSlots = rawElements.filter((el) => el.type === 'menu_list' && el.categorySlot != null && !categories[el.categorySlot]).length
+      const elements = rawElements.map((el) => el.type === 'menu_list' && el.categorySlot != null
+        ? { ...el, categoryId: categories[el.categorySlot]?.id_categoria ?? null, hidden: !categories[el.categorySlot] }
+        : el)
       const { data } = await apiClient.post('/editor/save', {
         title: template.name,
-        data_json: { canvas, elements },
+        data_json: { canvas, elements, missingCategorySlots: missingSlots },
         html_content: documentToHtml({ canvas, elements }),
       })
       navigate(`/editor/${data.id}`)

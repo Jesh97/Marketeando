@@ -44,6 +44,10 @@ function fillStyle(el) {
 function elementToHtml(el) {
   const shadowColor = el.shadowColor ?? 'rgba(0,0,0,0.35)'
 
+  if (el.type === 'menu_list') {
+    return `<div style="${baseStyle(el)}box-sizing:border-box;border:1px dashed #94a3b8;padding:8px;color:#64748b;font:12px sans-serif;">Bloque de menú · platos en vivo</div>`
+  }
+
   if (el.type === 'text') {
     const shadow = el.shadow ? `text-shadow:0 0 ${el.shadow}px ${shadowColor};` : ''
     const fontSize = el.isSticker ? Math.min(el.width, el.height) * 0.8 : el.fontSize

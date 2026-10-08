@@ -156,6 +156,11 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	var productosActivos int
+	if err := h.DB.QueryRow(ctx, "SELECT count(*) FROM producto WHERE id_restaurante = $1 AND activo", idRestaurante).Scan(&productosActivos); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	var subdominio string
 	_ = h.DB.QueryRow(ctx, "SELECT subdominio FROM restaurante WHERE id_restaurante = $1", idRestaurante).Scan(&subdominio)
@@ -172,6 +177,8 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 	// para que el Dashboard pueda ofrecer "Publicar" o "Publicar cambios".
 	var idMenuPrincipal *int
 	var menuPublicado bool
+	var designCustomizedAt, qrDownloadedAt *string
+	_ = h.DB.QueryRow(ctx, `SELECT design_customized_at::text, qr_downloaded_at::text FROM restaurante WHERE id_restaurante = $1`, idRestaurante).Scan(&designCustomizedAt, &qrDownloadedAt)
 	_ = h.DB.QueryRow(ctx,
 		`SELECT m.id_menu,
 		        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = m.id_menu AND mv.estado = 'publicada')
@@ -180,16 +187,41 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 	).Scan(&idMenuPrincipal, &menuPublicado)
 
 	c.JSON(http.StatusOK, gin.H{
-		"visitas_30d":        visitas30d,
-		"escaneos_qr_30d":    escaneosQR30d,
-		"productos_agotados": agotados,
-		"subdominio":         subdominio,
-		"plan":               plan,
-		"max_menu":           maxMenu,
-		"max_local":          maxLocal,
-		"id_menu_principal":  idMenuPrincipal,
-		"menu_publicado":     menuPublicado,
+		"visitas_30d":          visitas30d,
+		"escaneos_qr_30d":      escaneosQR30d,
+		"productos_agotados":   agotados,
+		"productos_activos":    productosActivos,
+		"design_customized_at": designCustomizedAt,
+		"qr_downloaded_at":     qrDownloadedAt,
+		"subdominio":           subdominio,
+		"plan":                 plan,
+		"max_menu":             maxMenu,
+		"max_local":            maxLocal,
+		"id_menu_principal":    idMenuPrincipal,
+		"menu_publicado":       menuPublicado,
 	})
+}
+
+// MarcarPasoOnboarding registra acciones reales del usuario para el checklist.
+func (h *RestauranteHandler) MarcarPasoOnboarding(c *gin.Context) {
+	columna := c.Param("paso")
+	if columna != "qr-descargado" && columna != "diseno-personalizado" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "paso de onboarding inválido"})
+		return
+	}
+	campo := "qr_downloaded_at"
+	if columna == "diseno-personalizado" {
+		campo = "design_customized_at"
+	}
+	var marcado string
+	err := h.DB.QueryRow(c.Request.Context(),
+		"UPDATE restaurante SET "+campo+" = COALESCE("+campo+", now()) WHERE id_restaurante = $1 RETURNING "+campo+"::text",
+		currentRestauranteID(c)).Scan(&marcado)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{campo: marcado})
 }
 
 // SubirLogo reemplaza el logo del restaurante: sube la imagen (misma

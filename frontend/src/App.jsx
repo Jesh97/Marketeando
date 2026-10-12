@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
+import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import Checkout from './pages/Checkout'
 import Dashboard from './pages/Dashboard'
@@ -15,7 +16,9 @@ import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 
 function App() {
+  const location = useLocation()
   return (
+    <ErrorBoundary key={`${location.pathname}${location.search}`}>
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -34,6 +37,7 @@ function App() {
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
+    </ErrorBoundary>
   )
 }
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import MenuListBlock, { applyFlow } from './MenuListBlock'
+import MenuListBlock from './MenuListBlock'
+import TokenizedText from './TokenizedText'
+import { applyFlow } from '../lib/flowLayout'
 
 const KNOWN = new Set(['text', 'rect', 'ellipse', 'image', 'menu_list'])
 const safeNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Math.max(-4000, Math.min(4000, Number(value))) : fallback
@@ -17,12 +19,12 @@ function background(canvas) {
   return safeColor(canvas.background, '#fff')
 }
 
-export default function DesignRenderer({ design, productos = [], categorias = [], className = '', onCanvasHeight, scale = 1 }) {
+export default function DesignRenderer({ design, productos = [], categorias = [], restaurante = {}, className = '', onCanvasHeight, scale = 1 }) {
   const [heights, setHeights] = useState({})
   const onHeight = useCallback((id, height) => setHeights((prev) => prev[id] === height ? prev : { ...prev, [id]: height }), [])
   const canvas = design?.canvas || { width: 800, height: 1000, background: '#fff' }
   const raw = Array.isArray(design?.elements) ? design.elements : []
-  const layout = useMemo(() => applyFlow(raw.filter((el) => el && KNOWN.has(el.type)), heights), [raw, heights])
+  const layout = useMemo(() => applyFlow(raw.filter((el) => el && KNOWN.has(el.type)), heights, canvas.height), [raw, heights, canvas.height])
   const height = Math.max(dimension(canvas.height, 1000), layout.height)
   const safeScale = Math.max(0.05, Math.min(1, safeNumber(scale, 1)))
   useEffect(() => { onCanvasHeight?.(height) }, [height, onCanvasHeight])
@@ -30,7 +32,7 @@ export default function DesignRenderer({ design, productos = [], categorias = []
     {layout.elements.filter((el) => !el.hidden && KNOWN.has(el.type)).sort((a, b) => safeNumber(a.zIndex) - safeNumber(b.zIndex)).map((el) => {
       const style = { position: 'absolute', left: safeNumber(el.x), top: safeNumber(el.y), width: Math.max(0, Math.min(4000, safeNumber(el.width))), height: el.type === 'menu_list' ? 'auto' : Math.max(0, Math.min(4000, safeNumber(el.height))), minHeight: undefined, boxSizing: 'border-box', opacity: Math.max(0, Math.min(1, safeNumber(el.opacity, 100) / 100)), zIndex: safeNumber(el.zIndex), transform: `rotate(${safeNumber(el.rotation)}deg)` }
       if (el.type === 'menu_list') return <div key={el.id} style={style}><MenuListBlock element={el} productos={productos} categorias={categorias} onHeight={onHeight} scale={safeScale} showExample={false} /></div>
-      if (el.type === 'text') return <div key={el.id} style={{ ...style, fontFamily: safeFont(el.fontFamily), fontSize: Math.max(safeNumber(el.fontSize, 16), 12 / safeScale), color: safeColor(el.color), fontWeight: safeNumber(el.fontWeight, 400), textAlign: ['left', 'center', 'right'].includes(el.align) ? el.align : 'left', letterSpacing: safeNumber(el.letterSpacing), lineHeight: safeNumber(el.lineHeight, 1.2), overflow: 'hidden' }}>{String(el.text || '')}</div>
+      if (el.type === 'text') return <div key={el.id} style={{ ...style, fontFamily: safeFont(el.fontFamily), fontSize: Math.max(safeNumber(el.fontSize, 16), 12 / safeScale), color: safeColor(el.color), fontWeight: safeNumber(el.fontWeight, 400), textAlign: ['left', 'center', 'right'].includes(el.align) ? el.align : 'left', letterSpacing: safeNumber(el.letterSpacing), lineHeight: safeNumber(el.lineHeight, 1.2), overflow: 'hidden' }}><TokenizedText text={el.text} restaurante={restaurante} missing="empty" /></div>
       if (el.type === 'image') {
         const src = typeof el.src === 'string' && /^\/uploads\/[\w./-]+$/.test(el.src) && !el.src.includes('..') ? el.src : null
         const clips = { circle: 'circle(50% at 50% 50%)', ellipse: 'ellipse(50% 50% at 50% 50%)', triangle: 'polygon(50% 0%, 0% 100%, 100% 100%)', hexagon: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', star: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }

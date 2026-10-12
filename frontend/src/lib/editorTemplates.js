@@ -27,7 +27,8 @@ function buildMenuElegante() {
   let z = 0
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    const sample = el.type === 'text' && !el.isSticker && !String(el.text ?? '').includes('{{') ? { sample: true } : {}
+    elements.push({ ...el, ...sample, zIndex: z })
   }
   function sticker(emoji, x, y, size, opacity) {
     push({
@@ -45,27 +46,12 @@ function buildMenuElegante() {
       opacity: opacity ?? 100,
     })
   }
-  function section(y, title) {
-    push({
-      type: 'text',
-      text: title,
-      x: 60,
-      y,
-      width: 220,
-      height: 34,
-      fontFamily: '"Playfair Display", serif',
-      fontSize: 23,
-      fontWeight: '700',
-      color: GOLD,
-      align: 'left',
-    })
-    push({ type: 'rect', x: 260, y: y + 16, width: 480, height: 2, fill: GOLD, opacity: 55 })
-  }
   let dishIndex = 0
-  function dish(y, name, desc, tags) {
+  function dish(y) {
     const categorySlot = Math.floor(dishIndex++ / 2)
     if (dishIndex % 2 === 0) return
-    push({ type: 'menu_list', categoryId: null, categorySlot, x: 60, y, width: 680, height: 150,
+    push({ type: 'menu_list', categoryId: null, categorySlot, x: 60, y: y - 50, width: 680, height: 190,
+      showCategoryTitle: true, titleStyle: { fontFamily: '"Playfair Display", serif', fontSize: 23, fontWeight: 700, color: GOLD }, titleDivider: 'line', titleDividerColor: GOLD, titleGap: 10,
       showPrice: true, showDescription: true, showTags: true, showAgotadoBadge: true,
       nameStyle: { fontFamily: '"Playfair Display", serif', fontSize: 17, fontWeight: 700, color: TEXT_LIGHT },
       priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: GOLD },
@@ -94,7 +80,7 @@ function buildMenuElegante() {
   // Título
   push({
     type: 'text',
-    text: 'Menú',
+    text: '{{nombre}}',
     x: 230,
     y: 210,
     width: 340,
@@ -105,6 +91,7 @@ function buildMenuElegante() {
     color: GOLD,
     align: 'center',
   })
+  push({ type: 'text', text: '{{slogan}}', x: 250, y: 298, width: 300, height: 24, fontFamily: 'Inter, sans-serif', fontSize: 13, color: TEXT_MUTED, align: 'center' })
 
   // Medallón de precio
   push({
@@ -133,36 +120,18 @@ function buildMenuElegante() {
     align: 'center',
   })
 
-  section(360, 'Entradas')
-  dish(
-    410,
-    'Ensalada fusión mediterránea',
-    'Lechuga, tomate, bonito, espárragos, brotes de soja, aceitunas negras y salsa rosa',
-    ['🌾', '🥛', '🥜'],
-  )
-  dish(
-    490,
-    'Tostaditas de palta y langostinos',
-    'Palta picada, langostinos a la plancha, tomate cherry, crema agria y mayonesa de chipotle',
-    ['🦐', '🥑'],
-  )
-
-  section(580, 'Platos principales')
-  dish(630, 'Salmón a la mantequilla de limón', 'Con papas asadas y brócoli salteado con panceta ahumada', [
-    '🐟',
-    '🧈',
-  ])
-  dish(710, 'Pizza marinera', 'Tomate, mozzarella, langostinos, calamares, anchoas y orégano', ['🌾', '🥛', '🦐'])
-
-  section(800, 'Postres')
-  dish(850, 'Duraznos al almíbar', 'Duraznos en almíbar con chocolate caliente', ['🥛', '🍫'])
-  dish(930, 'Brownie', 'Con frutos rojos y chocolate blanco', ['🌾', '🥛'])
+  dish(410)
+  dish(490)
+  dish(630)
+  dish(710)
+  dish(850)
+  dish(930)
 
   // Footer
   push({ type: 'rect', x: 60, y: 1020, width: 680, height: 1, fill: GOLD, opacity: 40 })
   push({
     type: 'text',
-    text: 'Nombre del local, dirección y ciudad · nombre@tunegocio.com',
+    text: 'Menú digital',
     x: 60,
     y: 1035,
     width: 480,
@@ -176,7 +145,7 @@ function buildMenuElegante() {
   sticker('📞', 60, 1060, 24)
   push({
     type: 'text',
-    text: '+51 234 567 890',
+    text: '{{telefono}}',
     x: 92,
     y: 1063,
     width: 200,
@@ -504,7 +473,8 @@ function buildTableroAhumado() {
   let z = 0
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    const sample = el.type === 'text' && !el.isSticker && !String(el.text ?? '').includes('{{') ? { sample: true } : {}
+    elements.push({ ...el, ...sample, zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -541,21 +511,13 @@ function buildTableroAhumado() {
   function card(x, y, w, h) {
     push({ type: 'rect', x, y, width: w, height: h, fill: CARD, borderRadius: 14, shadow: 18, shadowColor: SHADOW })
   }
-  function sectionTitle(x, y, w, title) {
-    text(x, y, w, 28, title, { fontFamily: 'Oswald, sans-serif', fontSize: 19, fontWeight: '700', color: AMBER, letterSpacing: 1 })
-    push({ type: 'rect', x, y: y + 36, width: w, height: 1, fill: AMBER, opacity: 30 })
-  }
-  function priceRow(x, y, w, name, price) {
-    text(x, y, w - 100, 22, name, { fontSize: 15, fontWeight: '600', color: TEXT_LIGHT })
-    text(x + w - 100, y, 100, 22, price, { fontSize: 15, fontWeight: '700', color: AMBER, align: 'right' })
-  }
   function desc(x, y, w, str) {
     text(x, y, w, 32, str, { fontSize: 12, color: TEXT_MUTED })
   }
 
   // Encabezado
-  text(50, 30, 600, 54, 'TU RESTAURANTE', { fontFamily: 'Oswald, sans-serif', fontSize: 38, fontWeight: '700', color: AMBER, letterSpacing: 2 })
-  text(50, 88, 500, 22, 'AHUMADERO ARTESANAL', { fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: '600', color: TEXT_MUTED, letterSpacing: 3 })
+  text(50, 30, 600, 54, '{{nombre}}', { fontFamily: 'Oswald, sans-serif', fontSize: 38, fontWeight: '700', color: AMBER, letterSpacing: 2 })
+  text(50, 88, 500, 22, '{{slogan}}', { fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: '600', color: TEXT_MUTED, letterSpacing: 3 })
 
   push({ type: 'rect', x: 1360, y: 28, width: 190, height: 56, fill: CARD_HIGH, borderRadius: 10 })
   text(1376, 36, 160, 26, '12:48 PM', { fontSize: 20, fontWeight: '700', color: AMBER })
@@ -601,9 +563,7 @@ function buildTableroAhumado() {
 
   // Columna 2 — Hamburguesas
   card(690, 156, 430, 700)
-  sectionTitle(720, 180, 370, 'HAMBURGUESAS DE HIERRO')
-
-  push({ type: 'menu_list', categoryId: null, categorySlot: 0, x: 720, y: 236, width: 370, height: 520,
+  push({ type: 'menu_list', categoryId: null, categorySlot: 0, x: 720, y: 190, width: 370, height: 560, showCategoryTitle: true, titleStyle: { fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 700, color: AMBER, letterSpacing: 1 }, titleDivider: 'underline', titleDividerColor: AMBER, titleGap: 10,
     showPrice: true, showDescription: true, showTags: true, showAgotadoBadge: true,
     nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: TEXT_LIGHT },
     priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: AMBER },
@@ -617,21 +577,21 @@ function buildTableroAhumado() {
 
   // Columna 3 — Guarniciones y bebidas
   card(1140, 156, 410, 700)
-  sectionTitle(1170, 180, 350, 'GUARNICIONES')
-
-  push({ type: 'menu_list', categoryId: null, categorySlot: 1, x: 1170, y: 236, width: 350, height: 160,
+  push({ type: 'menu_list', categoryId: null, categorySlot: 1, x: 1170, y: 190, width: 350, height: 220, showCategoryTitle: true, titleStyle: { fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700, color: AMBER, letterSpacing: 1 }, titleDivider: 'line', titleDividerColor: AMBER, titleGap: 8,
     showPrice: true, showDescription: false, showTags: false, showAgotadoBadge: true,
     nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: TEXT_LIGHT },
     priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700, color: AMBER },
     descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 11, color: TEXT_MUTED }, itemGap: 6, showDivider: true, dividerColor: '#484044' })
 
-  push({ type: 'rect', x: 1170, y: 410, width: 350, height: 1, fill: AMBER, opacity: 25 })
-  text(1170, 422, 300, 20, 'BEBIDAS', { fontSize: 13, fontWeight: '700', color: AMBER, letterSpacing: 1 })
-  push({ type: 'menu_list', categoryId: null, categorySlot: 2, x: 1170, y: 450, width: 350, height: 250,
+  push({ type: 'menu_list', categoryId: null, categorySlot: 2, x: 1170, y: 430, width: 350, height: 180, showCategoryTitle: true, titleStyle: { fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700, color: AMBER, letterSpacing: 1 }, titleDivider: 'line', titleDividerColor: AMBER, titleGap: 8,
     showPrice: true, showDescription: false, showTags: false, showAgotadoBadge: true,
     nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: TEXT_LIGHT },
     priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700, color: AMBER },
     descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 11, color: TEXT_MUTED }, itemGap: 6, showDivider: true, dividerColor: '#484044' })
+
+  push({ type: 'menu_list', categoryId: null, categorySlot: 3, x: 1170, y: 630, width: 350, height: 120, showCategoryTitle: true, titleStyle: { fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700, color: AMBER, letterSpacing: 1 }, titleDivider: 'line', titleDividerColor: AMBER, titleGap: 8,
+    showPrice: true, showDescription: false, showTags: false, showAgotadoBadge: true,
+    nameStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: TEXT_LIGHT }, priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700, color: AMBER }, descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 11, color: TEXT_MUTED }, itemGap: 6, showDivider: true, dividerColor: '#484044' })
 
   push({
     type: 'rect',
@@ -653,7 +613,7 @@ function buildTableroAhumado() {
   // Pie
   push({ type: 'rect', x: 50, y: 866, width: 1500, height: 54, fill: CARD, borderRadius: 10 })
   text(80, 884, 760, 22, 'Pedí en el mostrador #2 o escaneá el QR de tu mesa', { fontSize: 13, fontWeight: '600', color: AMBER })
-  text(900, 884, 610, 22, 'Aviso: contiene lácteos, gluten y frutos secos según preparación', {
+  text(900, 884, 610, 22, 'Contacto: {{telefono}}', {
     fontSize: 11,
     color: TEXT_MUTED,
     align: 'right',

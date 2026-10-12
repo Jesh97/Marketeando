@@ -4,7 +4,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useRestaurante } from '../context/RestauranteContext'
 import { documentToHtml } from '../lib/editorExport'
-import MenuListBlock, { applyFlow } from '../components/MenuListBlock'
+import MenuListBlock from '../components/MenuListBlock'
+import TokenizedText from '../components/TokenizedText'
+import { applyFlow } from '../lib/flowLayout'
 
 const DEFAULT_CANVAS = { width: 800, height: 1000, background: '#ffffff' }
 const MAX_HISTORY = 100
@@ -83,6 +85,7 @@ const DEFAULT_MENU_LIST = {
   priceStyle: { fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: '#FD761A' },
   descStyle: { fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748B' }, itemGap: 10,
   showDivider: true, dividerColor: '#E2E8F0',
+  showCategoryTitle: false, titleStyle: { fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 700, color: '#111827', letterSpacing: 0, textTransform: 'none' }, titleDivider: 'none', titleDividerColor: '#111827', titleGap: 10,
 }
 
 // Recortes disponibles para imágenes (clip-path CSS), al estilo "imagen
@@ -353,13 +356,14 @@ function EditorCanvas() {
   const [loading, setLoading] = useState(!isNew)
   const [saveState, setSaveState] = useState('idle')
   const [publishState, setPublishState] = useState('idle')
+  const [sampleWarningCount, setSampleWarningCount] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [productos, setProductos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [menuDataError, setMenuDataError] = useState('')
   const [measuredHeights, setMeasuredHeights] = useState({})
-  const flow = useMemo(() => applyFlow(elements, measuredHeights), [elements, measuredHeights])
+  const flow = useMemo(() => applyFlow(elements, measuredHeights, canvas.height), [elements, measuredHeights, canvas.height])
   const onMenuListHeight = useCallback((id, height) => setMeasuredHeights((prev) => prev[id] === height ? prev : { ...prev, [id]: height }), [])
   const [loadingProductos, setLoadingProductos] = useState(false)
   const [missingCategorySlots, setMissingCategorySlots] = useState(0)
@@ -709,7 +713,7 @@ function EditorCanvas() {
   // Usa este diseño (ya guardado y saneado por el backend) como el menú
   // público del restaurante: lo mete en el borrador del menú principal y lo
   // publica de una — así el link/QR redirige directo a este diseño.
-  async function handlePublicarComoMenu() {
+  async function ejecutarPublicacionMenu() {
     if (!idRestaurante) {
       window.alert('Necesitas un restaurante activo para publicar un menú.')
       return
@@ -717,6 +721,7 @@ function EditorCanvas() {
     setPublishState('publishing')
     try {
       const savedId = await guardarDocumento()
+      await apiClient.post(`/restaurantes/${idRestaurante}/onboarding/diseno-personalizado`)
       if (isNew) navigate(`/editor/${savedId}`, { replace: true })
 
       const { data: menus } = await apiClient.get(`/restaurantes/${idRestaurante}/menus`)
@@ -736,6 +741,15 @@ function EditorCanvas() {
       setPublishState('idle')
       window.alert(err.response?.data?.error ?? 'No se pudo publicar el menú.')
     }
+  }
+
+  function handlePublicarComoMenu() {
+    const sampleElements = elements.filter((el) => el.type === 'text' && el.sample === true && !el.hidden)
+    if (sampleElements.length > 0) {
+      setSampleWarningCount(sampleElements.length)
+      return
+    }
+    ejecutarPublicacionMenu()
   }
 
   if (loading) {
@@ -764,6 +778,16 @@ function EditorCanvas() {
 
   return (
     <div className="flex h-svh flex-col bg-gray-50">
+      {sampleWarningCount > 0 && <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4">
+        <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+          <h2 className="text-base font-semibold text-slate-900">Tienes {sampleWarningCount} textos de ejemplo sin editar</h2>
+          <p className="mt-2 text-sm text-slate-600">Puedes revisarlos antes de publicar o continuar con el diseño actual.</p>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => { setSampleWarningCount(0); ejecutarPublicacionMenu() }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">Publicar igual</button>
+            <button type="button" onClick={() => { const first = elements.find((el) => el.type === 'text' && el.sample === true && !el.hidden); setSampleWarningCount(0); if (first) { setSelectedIds(new Set([first.id])); setSelectedId(first.id) } }} className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white">Revisar</button>
+          </div>
+        </div>
+      </div>}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
         <div className="flex items-center gap-3">
           <Link to="/editor" className="rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100">
@@ -969,10 +993,11 @@ function EditorCanvas() {
                 onStartEditText={() => setEditingTextId(el.id)}
                 onCommitText={(text) => {
                   setEditingTextId(null)
-                  updateElement(el.id, { text })
+                  updateElement(el.id, { text, sample: undefined })
                 }}
                 productos={productos}
                 categorias={categorias}
+                restaurante={restaurante}
                 onMenuListHeight={onMenuListHeight}
               />
             ))}
@@ -1448,6 +1473,15 @@ function EditorCanvas() {
           {selectedIds.size === 1 && selected?.type === 'menu_list' && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-900">Bloque de menú</h3>
+              <label className="flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" checked={selected.showCategoryTitle === true} onChange={(e) => updateElement(selected.id, { showCategoryTitle: e.target.checked })} />Mostrar título de categoría</label>
+              {selected.showCategoryTitle === true && <div className="space-y-2 rounded-md border border-gray-100 p-2">
+                <p className="text-xs font-semibold text-gray-600">Título de categoría</p>
+                <div className="grid grid-cols-[1fr_72px] gap-2"><select value={selected.titleStyle?.fontFamily ?? 'Inter, sans-serif'} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, fontFamily: e.target.value } })} className="min-w-0 rounded border border-gray-200 px-1 py-1 text-xs">{FONT_OPTIONS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}</select><input aria-label="Tamaño del título" type="number" min="8" max="60" value={selected.titleStyle?.fontSize ?? 18} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, fontSize: Number(e.target.value) } })} className="w-full rounded border border-gray-200 px-1 py-1 text-xs" /></div>
+                <div className="grid grid-cols-[1fr_48px] items-center gap-2"><select value={selected.titleStyle?.fontWeight ?? '700'} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, fontWeight: e.target.value } })} className="rounded border border-gray-200 px-1 py-1 text-xs"><option value="400">Normal</option><option value="600">Semi-negrita</option><option value="700">Negrita</option></select><input aria-label="Color del título" type="color" value={selected.titleStyle?.color ?? '#111827'} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, color: e.target.value } })} className="h-7 w-full rounded border border-gray-200" /></div>
+                <div className="grid grid-cols-2 gap-2"><select aria-label="Transformación del título" value={selected.titleStyle?.textTransform ?? 'none'} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, textTransform: e.target.value } })} className="rounded border border-gray-200 px-1 py-1 text-xs"><option value="none">Normal</option><option value="uppercase">Mayúsculas</option><option value="lowercase">Minúsculas</option><option value="capitalize">Iniciales</option></select><input aria-label="Espaciado del título" type="number" min="-2" max="16" step="0.5" value={selected.titleStyle?.letterSpacing ?? 0} onChange={(e) => updateElement(selected.id, { titleStyle: { ...selected.titleStyle, letterSpacing: Number(e.target.value) } })} className="rounded border border-gray-200 px-1 py-1 text-xs" /></div>
+                <div className="grid grid-cols-2 gap-2"><select aria-label="Divisor del título" value={selected.titleDivider ?? 'none'} onChange={(e) => updateElement(selected.id, { titleDivider: e.target.value })} className="rounded border border-gray-200 px-1 py-1 text-xs"><option value="none">Sin divisor</option><option value="line">Línea al lado</option><option value="underline">Línea debajo</option></select><input aria-label="Color del divisor" type="color" value={selected.titleDividerColor ?? '#111827'} onChange={(e) => updateElement(selected.id, { titleDividerColor: e.target.value })} className="h-7 w-full rounded border border-gray-200" /></div>
+                <label className="block text-xs text-gray-600">Espacio debajo <input type="range" min="0" max="32" value={selected.titleGap ?? 10} onChange={(e) => updateElement(selected.id, { titleGap: Number(e.target.value) })} className="mt-2 w-full accent-orange-500" /></label>
+              </div>}
               <div>
                 <label className="text-xs font-medium text-gray-500">Categoría</label>
                 <select value={selected.categoryId ?? ''} onChange={(e) => updateElement(selected.id, { categoryId: e.target.value ? Number(e.target.value) : null, categorySlot: null })} className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm">
@@ -1724,7 +1758,7 @@ function EditorCanvas() {
   )
 }
 
-function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onStartEditText, onCommitText, productos = [], categorias = [], onMenuListHeight }) {
+function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onStartEditText, onCommitText, productos = [], categorias = [], restaurante = {}, onMenuListHeight }) {
   const style = {
     position: 'absolute',
     left: el.x,
@@ -1778,7 +1812,7 @@ function CanvasElement({ el, isSelected, isEditing, registerRef, onSelect, onSta
         suppressContentEditableWarning
         onBlur={(e) => onCommitText(e.currentTarget.textContent)}
       >
-        {el.text}
+        {isEditing ? el.text : <TokenizedText text={el.text} restaurante={restaurante} missing="literal" />}
       </div>
     )
   }

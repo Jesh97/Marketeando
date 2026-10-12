@@ -28,12 +28,12 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 
 	var idRestaurante int
 	var nombre, zonaHoraria string
-	var slogan, urlLogo *string
+	var slogan, urlLogo, telefono *string
 	err := h.DB.QueryRow(ctx,
-		`SELECT id_restaurante, nombre, slogan, url_logo, zona_horaria
+		`SELECT id_restaurante, nombre, slogan, url_logo, telefono, zona_horaria
 		 FROM restaurante WHERE subdominio = $1 AND activo`,
 		subdominio,
-	).Scan(&idRestaurante, &nombre, &slogan, &urlLogo, &zonaHoraria)
+	).Scan(&idRestaurante, &nombre, &slogan, &urlLogo, &telefono, &zonaHoraria)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "restaurante no encontrado"})
 		return
@@ -119,6 +119,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 			"nombre":         nombre,
 			"slogan":         slogan,
 			"url_logo":       urlLogo,
+			"telefono":       telefono,
 			"zona_horaria":   zonaHoraria,
 		},
 		"id_menu":   idMenu,

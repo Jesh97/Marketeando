@@ -132,7 +132,7 @@ function PublicMenu() {
     return <div className="min-h-svh bg-[#F6F8FC]">
       <div style={{ width: 'min(100%, 768px)', height: renderHeight * scale, margin: '0 auto', overflow: 'hidden' }}>
         <div style={{ width: designWidth, height: renderHeight, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <DesignRenderer design={design} productos={data.productos} categorias={categoriasDiseño} onCanvasHeight={setDesignHeight} scale={scale} />
+          <DesignRenderer design={design} productos={data.productos} categorias={categoriasDiseño} restaurante={data.restaurante} onCanvasHeight={setDesignHeight} scale={scale} />
         </div>
       </div>
       <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8]"><p className="text-xs">Menú digital creado con <span className="font-bold text-white">Karta Kamay</span></p></div>

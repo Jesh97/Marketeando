@@ -20,6 +20,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 	metodoPagoHandler := handlers.NewMetodoPagoHandler(db)
 	publicHandler := handlers.NewPublicHandler(db)
 	editorHandler := handlers.NewEditorHandler(db, uploadDir)
+	culqiWebhookHandler := handlers.NewCulqiWebhookHandler(db)
 
 	api := router.Group("/api")
 	{
@@ -39,6 +40,10 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 		}
 		api.GET("/planes", planHandler.List)
 		api.GET("/public/menu/:subdominio", publicHandler.MenuPorSubdominio)
+
+		// Notificaciones de Culqi: no llevan nuestro JWT, solo se puede
+		// confiar en ellas re-consultando el cargo contra la API de Culqi.
+		api.POST("/webhooks/culqi", culqiWebhookHandler.Handle)
 
 		// --- Requiere sesión (Authorization: Bearer <token>) ---
 		protected := api.Group("")

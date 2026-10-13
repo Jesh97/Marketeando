@@ -9,12 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"marketeando/backend/internal/config"
+	"marketeando/backend/internal/culqi"
 	"marketeando/backend/internal/database"
 	"marketeando/backend/internal/routes"
 )
 
 func main() {
 	cfg := config.Load()
+	culqi.Init(cfg.CulqiSecretKey)
 
 	ctx := context.Background()
 	db, err := database.Connect(ctx, cfg.DatabaseURL)

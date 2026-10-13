@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
+import { tokenizarTarjeta } from '../lib/culqi'
 
 const TIPOS_METODO_PAGO = [
   { value: 'tarjeta', label: 'Tarjeta' },
@@ -19,7 +20,7 @@ function metodoPagoLabel(value) {
 }
 
 function precioLabel(precio) {
-  return precio > 0 ? `$${precio.toFixed(2)}/mes` : 'Gratis'
+  return precio > 0 ? `S/ ${precio.toFixed(2)}/mes` : 'Gratis'
 }
 
 function formatFecha(value) {
@@ -27,30 +28,8 @@ function formatFecha(value) {
   return new Date(value).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function formatCardNumber(raw) {
-  return raw
-    .replace(/\D/g, '')
-    .slice(0, 19)
-    .replace(/(.{4})/g, '$1 ')
-    .trim()
-}
-
-function formatVencimiento(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits
-}
-
-function detectarMarca(numeroLimpio) {
-  if (!numeroLimpio) return 'Tarjeta'
-  if (numeroLimpio[0] === '4') return 'Visa'
-  if (numeroLimpio[0] === '5' || numeroLimpio[0] === '2') return 'Mastercard'
-  if (numeroLimpio[0] === '3') return 'American Express'
-  return 'Tarjeta'
-}
-
-// Insignia visual de la marca de la tarjeta: cambia en vivo mientras se
-// escribe el número (mismo detectarMarca que usa el backend para guardarla),
-// y se reutiliza para mostrar el método de pago ya guardado.
+// Insignia visual de la marca de la tarjeta (la marca ya viene resuelta por
+// Culqi al guardar la tarjeta, no se deriva en el frontend).
 function CardBrandMark({ marca, className = '' }) {
   if (marca === 'Visa') {
     return (
@@ -90,39 +69,36 @@ function CardBrandMark({ marca, className = '' }) {
 // Formulario para registrar/actualizar el método de pago del restaurante.
 // Cuando hay un plan pendiente de confirmar (primera suscripción, o cambio
 // de plan sin un método guardado todavía), guardar el método también
-// dispara ese cambio de plan.
-function PaymentMethodModal({ title, pendingPlanLabel, submitting, onCancel, onSave }) {
+// dispara ese cambio de plan. La tarjeta se tokeniza en el Checkout
+// hosteado de Culqi (modal propio de Culqi): nuestro formulario nunca pide
+// ni ve el número completo.
+function PaymentMethodModal({ title, pendingPlanLabel, montoCentavos, submitting, onCancel, onSave }) {
   const [tipo, setTipo] = useState('tarjeta')
   const [titular, setTitular] = useState('')
-  const [numero, setNumero] = useState('')
-  const [vencimiento, setVencimiento] = useState('')
-  const [cvv, setCvv] = useState('')
+  const [tokenizando, setTokenizando] = useState(false)
+  const [errorTokenizacion, setErrorTokenizacion] = useState(null)
 
-  const numeroLimpio = numero.replace(/\D/g, '')
-  const marca = detectarMarca(numeroLimpio)
-
-  const esValido =
-    tipo !== 'tarjeta'
-      ? true
-      : titular.trim().length > 1 &&
-        numeroLimpio.length >= 13 &&
-        /^\d{2}\/\d{2}$/.test(vencimiento) &&
-        cvv.length >= 3
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (!esValido || submitting) return
-    onSave({
-      tipo,
-      titular: titular.trim() || null,
-      numero: tipo === 'tarjeta' ? numeroLimpio : null,
-      vencimiento: tipo === 'tarjeta' ? vencimiento : null,
-    })
+  async function handlePagarConTarjeta() {
+    setErrorTokenizacion(null)
+    setTokenizando(true)
+    try {
+      const tokenId = await tokenizarTarjeta({
+        montoCentavos,
+        descripcion: pendingPlanLabel ? `Suscripción ${pendingPlanLabel}` : 'Registro de tarjeta KartaKamay',
+      })
+      await onSave({ tipo: 'tarjeta', titular: titular.trim() || null, token_id: tokenId })
+    } catch (err) {
+      setErrorTokenizacion(err.message ?? 'No se pudo completar el pago.')
+    } finally {
+      setTokenizando(false)
+    }
   }
+
+  const ocupado = submitting || tokenizando
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="mb-1 text-base font-bold text-navy">{title}</h3>
         {pendingPlanLabel && (
           <p className="mb-4 text-[13px] text-[#8A94A6]">
@@ -135,117 +111,56 @@ function PaymentMethodModal({ title, pendingPlanLabel, submitting, onCancel, onS
             <button
               key={m.value}
               type="button"
+              disabled={m.value === 'yape'}
               onClick={() => setTipo(m.value)}
-              className={`rounded-md border px-2 py-2 text-xs font-semibold ${
+              title={m.value === 'yape' ? 'Yape estará disponible próximamente' : undefined}
+              className={`rounded-md border px-2 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
                 tipo === m.value
                   ? 'border-navy bg-navy text-white'
                   : 'border-[#E2E8F0] text-navy hover:bg-[#F6F8FC]'
               }`}
             >
               {m.label}
+              {m.value === 'yape' ? ' (próximamente)' : ''}
             </button>
           ))}
         </div>
 
-        {tipo === 'tarjeta' ? (
-          <div className="mt-5">
-            {/* Vista previa en vivo de la tarjeta que se está registrando */}
-            <div className="mb-5 rounded-xl bg-gradient-to-br from-navy to-[#1B3A5C] p-5 text-white shadow-md">
-              <div className="flex items-center justify-between">
-                <div className="h-6 w-6 rounded-full bg-white/25" />
-                {numeroLimpio && <CardBrandMark marca={marca} className="h-7 w-11" />}
-              </div>
-              <p className="mt-6 text-lg font-semibold tracking-[0.2em]">
-                {numero ? formatCardNumber(numero) : '•••• •••• •••• ••••'}
-              </p>
-              <div className="mt-4 flex items-end justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-white/60">Titular</p>
-                  <p className="text-sm font-medium uppercase">{titular || 'Nombre y apellido'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-white/60">Vence</p>
-                  <p className="text-sm font-medium">{vencimiento || 'MM/AA'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-navy">Nombre del titular</label>
-                <input
-                  value={titular}
-                  onChange={(e) => setTitular(e.target.value)}
-                  placeholder="Mariana Chávez"
-                  className="h-11 w-full rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-sm outline-none focus:border-orange"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-navy">Número de tarjeta</label>
-                <input
-                  value={formatCardNumber(numero)}
-                  onChange={(e) => setNumero(e.target.value)}
-                  placeholder="1234 1234 1234 1234"
-                  inputMode="numeric"
-                  className="h-11 w-full rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-sm outline-none focus:border-orange"
-                />
-              </div>
-              <div className="flex gap-3.5">
-                <div className="flex-1">
-                  <label className="mb-1.5 block text-[13px] font-semibold text-navy">Vencimiento</label>
-                  <input
-                    value={vencimiento}
-                    onChange={(e) => setVencimiento(formatVencimiento(e.target.value))}
-                    placeholder="MM/AA"
-                    inputMode="numeric"
-                    className="h-11 w-full rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-sm outline-none focus:border-orange"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="mb-1.5 block text-[13px] font-semibold text-navy">CVV</label>
-                  <input
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="123"
-                    inputMode="numeric"
-                    className="h-11 w-full rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-sm outline-none focus:border-orange"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-5">
-            <label className="mb-1.5 block text-[13px] font-semibold text-navy">
-              Número de Yape (opcional)
-            </label>
+        <div className="mt-5">
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-navy">Nombre del titular</label>
             <input
               value={titular}
               onChange={(e) => setTitular(e.target.value)}
-              placeholder="987 654 321"
+              placeholder="Mariana Chávez"
               className="h-11 w-full rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-sm outline-none focus:border-orange"
             />
           </div>
-        )}
+          <p className="mt-3 text-[12.5px] text-[#8A94A6]">
+            Al hacer clic se abrirá la ventana segura de Culqi para ingresar los datos de tu tarjeta.
+          </p>
+          {errorTokenizacion && <p className="mt-2 text-[12.5px] text-red-500">{errorTokenizacion}</p>}
+        </div>
 
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            disabled={submitting}
+            disabled={ocupado}
             className="rounded-md px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-50 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            type="submit"
-            disabled={!esValido || submitting}
+            type="button"
+            onClick={handlePagarConTarjeta}
+            disabled={ocupado}
             className="rounded-md bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? 'Guardando...' : 'Guardar'}
+            {ocupado ? 'Procesando...' : 'Continuar con tarjeta'}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   )
 }
@@ -512,7 +427,7 @@ function Subscription() {
                 <tr key={inv.id_factura} className="border-t border-[#E2E8F0] text-[13.5px]">
                   <td className="px-4 py-3">{formatFecha(inv.fecha_emision)}</td>
                   <td className="px-2 py-3">Plan {inv.plan} — mensual</td>
-                  <td className="px-2 py-3">${inv.monto.toFixed(2)}</td>
+                  <td className="px-2 py-3">S/ {inv.monto.toFixed(2)}</td>
                   <td className={`px-4 py-3 font-bold ${estado.className}`}>{estado.label}</td>
                 </tr>
               )
@@ -543,6 +458,7 @@ function Subscription() {
         <PaymentMethodModal
           title={pendingPlan ? 'Agrega un método de pago' : metodoPago ? 'Actualizar método de pago' : 'Agregar método de pago'}
           pendingPlanLabel={pendingPlan ? `${pendingPlan.nombre} (${precioLabel(pendingPlan.precio)})` : null}
+          montoCentavos={Math.round(((pendingPlan ?? currentPlan)?.precio ?? 0) * 100)}
           submitting={working}
           onCancel={() => {
             setPendingPlan(null)

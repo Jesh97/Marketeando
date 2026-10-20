@@ -21,6 +21,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 	publicHandler := handlers.NewPublicHandler(db)
 	editorHandler := handlers.NewEditorHandler(db, uploadDir)
 	culqiWebhookHandler := handlers.NewCulqiWebhookHandler(db)
+	qrPersonalizacionHandler := handlers.NewQRPersonalizacionHandler(db, uploadDir)
 
 	api := router.Group("/api")
 	{
@@ -100,6 +101,15 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 					suscripcion.GET("", suscripcionHandler.Get)
 					suscripcion.POST("", suscripcionHandler.Suscribir)
 					suscripcion.GET("/facturas", suscripcionHandler.Facturas)
+				}
+
+				// Personalizar QR: solo plan Enterprise activo (ver RequirePlan).
+				qr := mio.Group("/qr-personalizacion")
+				qr.Use(handlers.RequirePlan(db, "Enterprise"))
+				{
+					qr.GET("", qrPersonalizacionHandler.Get)
+					qr.PUT("", qrPersonalizacionHandler.Update)
+					qr.POST("/logo", qrPersonalizacionHandler.SubirLogo)
 				}
 
 				metodoPago := mio.Group("/metodo-pago")

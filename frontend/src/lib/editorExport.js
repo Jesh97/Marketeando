@@ -3,6 +3,7 @@
 // de un contenedor relative del tamaño del lienzo. El backend vuelve a
 // sanitizar este string antes de guardarlo, así que aquí no hace falta
 // (ni conviene) intentar ser el único punto de defensa contra XSS.
+import { formatPrecio } from './disenoProductos'
 
 // Debe reflejar los mismos recortes que IMAGE_SHAPES en EditorCanvas.jsx,
 // para que el HTML exportado se vea igual que en el lienzo.
@@ -41,8 +42,52 @@ function fillStyle(el) {
   return el.fill
 }
 
+// Estilos del bloque de plato vinculado, compartidos con su render en el
+// lienzo (ProductBlock en EditorCanvas.jsx) para que se vea igual.
+export function estilosBloqueProducto(el) {
+  const tamano = el.fontSize ?? 22
+  return {
+    fila: { gap: Math.round(tamano * 0.5), fontSize: tamano, fontWeight: el.fontWeight ?? '700' },
+    precio: { color: el.priceColor ?? el.color },
+    descripcion: { fontSize: Math.round(tamano * 0.64), lineHeight: 1.35, opacity: 0.8 },
+  }
+}
+
+function productToHtml(el) {
+  const shadowColor = el.shadowColor ?? 'rgba(0,0,0,0.35)'
+  const shadow = el.shadow ? `text-shadow:0 0 ${el.shadow}px ${shadowColor};` : ''
+  const s = estilosBloqueProducto(el)
+  const datos = el.snapshot ?? {}
+  const precio =
+    el.showPrice === false
+      ? ''
+      : `<span data-kk-campo="precio" style="color:${s.precio.color};flex-shrink:0;white-space:nowrap;">` +
+        `${escapeHtml(formatPrecio(datos.precio))}</span>`
+  const descripcion =
+    el.showDescription === false
+      ? ''
+      : `<div data-kk-campo="descripcion" style="font-size:${s.descripcion.fontSize}px;` +
+        `line-height:${s.descripcion.lineHeight};opacity:${s.descripcion.opacity};font-weight:400;">` +
+        `${escapeHtml(datos.descripcion ?? '')}</div>`
+  const style =
+    baseStyle(el) +
+    `font-family:${el.fontFamily};color:${el.color};display:flex;flex-direction:column;` +
+    `gap:${Math.round(s.fila.gap / 2)}px;overflow:hidden;` +
+    shadow
+  return (
+    `<div data-kk-producto="${Number(el.productoId)}" style="${style}">` +
+    `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:${s.fila.gap}px;` +
+    `font-size:${s.fila.fontSize}px;font-weight:${s.fila.fontWeight};line-height:1.2;">` +
+    `<span data-kk-campo="nombre">${escapeHtml(datos.nombre ?? '')}</span>${precio}</div>` +
+    descripcion +
+    `</div>`
+  )
+}
+
 function elementToHtml(el) {
   const shadowColor = el.shadowColor ?? 'rgba(0,0,0,0.35)'
+
+  if (el.type === 'product') return productToHtml(el)
 
   if (el.type === 'text') {
     const shadow = el.shadow ? `text-shadow:0 0 ${el.shadow}px ${shadowColor};` : ''

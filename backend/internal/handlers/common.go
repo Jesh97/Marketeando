@@ -50,3 +50,24 @@ func RequireOwnRestaurante(db *pgxpool.Pool) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequirePlan exige que el restaurante (ya resuelto por RequireOwnRestaurante)
+// tenga una suscripción activa en el plan indicado; usa la misma vista
+// v_plan_restaurante que el resto de los chequeos de plan (ver MenuHandler.Create).
+func RequirePlan(db *pgxpool.Pool, nombrePlan string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var plan string
+		err := db.QueryRow(
+			c.Request.Context(),
+			"SELECT plan FROM v_plan_restaurante WHERE id_restaurante = $1",
+			currentRestauranteID(c),
+		).Scan(&plan)
+		if err != nil || plan != nombrePlan {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "esta función requiere el plan " + nombrePlan,
+			})
+			return
+		}
+		c.Next()
+	}
+}

@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import apiClient from '../api/client'
+import DisenoEscalado from '../components/DisenoEscalado'
+import { hidratarDiseno } from '../lib/disenoProductos'
+import { cargarFuentes, familiasEnHtml } from '../lib/fuentes'
 
 const SWATCHES = ['#F2C57C', '#C97B5F', '#7AACA6', '#D9A441', '#8B6BAE', '#E4A6A0']
 
@@ -90,6 +93,17 @@ function PublicMenu() {
       .catch((err) => setError(err.response?.data?.error ?? 'No se pudo cargar el menú.'))
   }, [slug])
 
+  // Diseño del Editor: los bloques de plato toman nombre/precio/agotado
+  // actuales, y se cargan solo las fuentes que el diseño usa.
+  const disenoHtml = useMemo(() => {
+    const html = data?.contenido?.diseno_html
+    return html ? hidratarDiseno(html, data.productos ?? []) : ''
+  }, [data])
+
+  useEffect(() => {
+    if (disenoHtml) cargarFuentes(familiasEnHtml(disenoHtml))
+  }, [disenoHtml])
+
   if (error) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-[#F6F8FC] px-6 text-center">
@@ -108,25 +122,14 @@ function PublicMenu() {
 
   // Si el restaurante publicó un diseño libre desde el Editor (en vez del
   // menú estructurado por categorías/productos), ese HTML manda: se escala
-  // al ancho de la pantalla con el mismo truco svg+foreignObject que usa la
-  // miniatura de plantillas del Editor, sin importar el tamaño del lienzo
-  // original (800x1000, 1080x1920, etc.).
-  if (data.contenido?.diseno_html) {
+  // al ancho de la pantalla sin importar el tamaño del lienzo original
+  // (800x1000, 1080x1920, etc.).
+  if (disenoHtml) {
     const disenoCanvas = data.contenido.diseno_canvas ?? { width: 800, height: 1000 }
     return (
       <div className="min-h-svh bg-[#F6F8FC]">
-        <div
-          className="mx-auto w-full max-w-2xl"
-          style={{ aspectRatio: `${disenoCanvas.width} / ${disenoCanvas.height}` }}
-        >
-          <svg viewBox={`0 0 ${disenoCanvas.width} ${disenoCanvas.height}`} className="h-full w-full">
-            <foreignObject width={disenoCanvas.width} height={disenoCanvas.height}>
-              <div
-                xmlns="http://www.w3.org/1999/xhtml"
-                dangerouslySetInnerHTML={{ __html: data.contenido.diseno_html }}
-              />
-            </foreignObject>
-          </svg>
+        <div className="mx-auto w-full max-w-2xl">
+          <DisenoEscalado html={disenoHtml} canvas={disenoCanvas} />
         </div>
         <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8]">
           <p className="text-xs">

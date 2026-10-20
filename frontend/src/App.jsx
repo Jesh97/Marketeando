@@ -11,6 +11,7 @@ import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Products from './pages/Products'
 import PublicMenu from './pages/PublicMenu'
+import QrPersonalizado from './pages/QrPersonalizado'
 import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 
@@ -30,6 +31,7 @@ function App() {
         <Route path="/products" element={<Products />} />
         <Route path="/editor" element={<Editor />} />
         <Route path="/editor/:id" element={<EditorCanvas />} />
+        <Route path="/qr-personalizado" element={<QrPersonalizado />} />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

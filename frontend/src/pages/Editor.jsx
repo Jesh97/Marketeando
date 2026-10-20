@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
+import DisenoEscalado from '../components/DisenoEscalado'
 import { useRestaurante } from '../context/RestauranteContext'
 import { documentToHtml } from '../lib/editorExport'
 import { TEMPLATES } from '../lib/editorTemplates'
+import { cargarFuentesDelEditor } from '../lib/fuentes'
 
 // Las plantillas prearmadas ("bocetos") son un beneficio de Pro/Enterprise;
 // el plan Básico solo puede empezar en blanco. Se resuelve en el cliente
@@ -20,93 +22,106 @@ function LockIcon() {
   )
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-4 w-4">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
 function formatFecha(value) {
   return new Date(value).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Miniatura de una plantilla: el truco del <svg><foreignObject> escala el
-// HTML real del diseño (mismo documentToHtml que exporta el editor) al
-// tamaño de la tarjeta sin medir nada por JS, sin importar el tamaño real
-// del lienzo (800x1000, 1000x600, 1080x1920, etc.).
 function TemplatePreview({ canvas, elements, className = '' }) {
-  const html = documentToHtml({ canvas, elements })
   return (
-    <div
-      className={`w-full overflow-hidden bg-gray-50 ${className}`}
-      style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}
-    >
-      <svg viewBox={`0 0 ${canvas.width} ${canvas.height}`} className="h-full w-full">
-        <foreignObject width={canvas.width} height={canvas.height}>
-          <div xmlns="http://www.w3.org/1999/xhtml" dangerouslySetInnerHTML={{ __html: html }} />
-        </foreignObject>
-      </svg>
+    <DisenoEscalado html={documentToHtml({ canvas, elements })} canvas={canvas} className={`bg-[#F6F8FC] ${className}`} />
+  )
+}
+
+function Modal({ children, onClose, ancho = 'max-w-sm' }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
+      <div
+        className={`max-h-[85vh] w-full ${ancho} overflow-y-auto rounded-[14px] bg-white p-6 shadow-xl`}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
     </div>
   )
 }
 
 function TemplateModal({ onClose, onPickBlank, onPickTemplate, onPickLocked, creating, plantillasDisponibles }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-navy">Nuevo diseño</h2>
-          <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600">
-            Cerrar
-          </button>
-        </div>
-        {!plantillasDisponibles && (
-          <p className="mb-4 rounded-lg bg-orange-50 px-3 py-2 text-xs text-orange-700">
-            Las plantillas prediseñadas son un beneficio de los planes Pro y Enterprise.{' '}
-            <Link to="/subscription" className="font-semibold underline">
-              Mejora tu plan
-            </Link>{' '}
-            para desbloquearlas.
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={onPickBlank}
-            disabled={creating}
-            className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500 disabled:opacity-50"
-          >
-            <span className="text-3xl">+</span>
-            <span className="text-sm font-medium">Empezar en blanco</span>
-          </button>
-          {TEMPLATES.map((template) => {
-            const { canvas, elements } = template.build()
-            const locked = !plantillasDisponibles
-            return (
-              <button
-                key={template.id}
-                type="button"
-                disabled={creating}
-                onClick={() => (locked ? onPickLocked() : onPickTemplate(template))}
-                title={locked ? 'Disponible en los planes Pro y Enterprise' : undefined}
-                className="group relative flex flex-col gap-2 rounded-lg border border-gray-200 p-1.5 text-left hover:border-orange-300 disabled:opacity-50"
-              >
-                <div className="relative">
-                  <TemplatePreview
-                    canvas={canvas}
-                    elements={elements}
-                    className={`rounded-lg ${locked ? 'opacity-50 grayscale' : ''}`}
-                  />
-                  {locked && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-black/10 text-white">
-                      <LockIcon />
-                      <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-                        Pro
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <span className="px-1 pb-1 text-sm font-medium text-gray-700">{template.name}</span>
-              </button>
-            )
-          })}
-        </div>
+    <Modal onClose={onClose} ancho="max-w-3xl">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-navy">Nuevo diseño</h2>
+        <button type="button" onClick={onClose} className="text-sm font-semibold text-[#8A94A6] hover:text-navy">
+          Cerrar
+        </button>
       </div>
-    </div>
+      {!plantillasDisponibles && (
+        <p className="mb-4 rounded-[9px] bg-orange-light px-3 py-2 text-xs text-orange-dark">
+          Las plantillas prediseñadas son un beneficio de los planes Pro y Enterprise.{' '}
+          <Link to="/subscription" className="font-semibold underline">
+            Mejora tu plan
+          </Link>{' '}
+          para desbloquearlas.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={onPickBlank}
+          disabled={creating}
+          className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-[10px] border-2 border-dashed border-[#E2E8F0] text-[#8A94A6] hover:border-orange hover:text-orange disabled:opacity-50"
+        >
+          <PlusIcon />
+          <span className="text-sm font-semibold">Empezar en blanco</span>
+        </button>
+        {TEMPLATES.map((template) => {
+          const { canvas, elements } = template.build()
+          const locked = !plantillasDisponibles
+          return (
+            <button
+              key={template.id}
+              type="button"
+              disabled={creating}
+              onClick={() => (locked ? onPickLocked() : onPickTemplate(template))}
+              title={locked ? 'Disponible en los planes Pro y Enterprise' : undefined}
+              className="group relative flex flex-col gap-2 rounded-[10px] border border-[#E2E8F0] p-1.5 text-left hover:border-orange disabled:opacity-50"
+            >
+              <div className="relative">
+                <TemplatePreview
+                  canvas={canvas}
+                  elements={elements}
+                  className={`rounded-[8px] ${locked ? 'opacity-50 grayscale' : ''}`}
+                />
+                {locked && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-[8px] bg-black/10 text-white">
+                    <LockIcon />
+                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                      Pro
+                    </span>
+                  </div>
+                )}
+              </div>
+              <span className="px-1 pb-1 text-sm font-semibold text-navy">{template.name}</span>
+            </button>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
 
@@ -119,11 +134,19 @@ function Editor() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [creating, setCreating] = useState(false)
   const [plan, setPlan] = useState(null)
+  const [aEliminar, setAEliminar] = useState(null)
+  const [error, setError] = useState('')
+
+  // Las miniaturas y plantillas usan las fuentes del editor.
+  useEffect(() => {
+    cargarFuentesDelEditor()
+  }, [])
 
   useEffect(() => {
     apiClient
       .get('/editor')
       .then(({ data }) => setDocuments(data))
+      .catch(() => setError('No se pudieron cargar tus diseños.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -151,6 +174,7 @@ function Editor() {
   async function handleUseTemplate(template) {
     const { canvas, elements } = template.build()
     setCreating(true)
+    setError('')
     try {
       const { data } = await apiClient.post('/editor/save', {
         title: template.name,
@@ -159,44 +183,62 @@ function Editor() {
       })
       navigate(`/editor/${data.id}`)
     } catch (err) {
-      window.alert(err.response?.data?.error ?? 'No se pudo crear el diseño desde la plantilla.')
+      setShowTemplates(false)
+      setError(err.response?.data?.error ?? 'No se pudo crear el diseño desde la plantilla.')
       setCreating(false)
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('¿Eliminar este diseño? Esta acción no se puede deshacer.')) return
+  async function confirmarEliminar() {
+    const doc = aEliminar
+    setAEliminar(null)
     try {
-      await apiClient.delete(`/editor/${id}`)
-      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+      await apiClient.delete(`/editor/${doc.id}`)
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
     } catch (err) {
-      window.alert(err.response?.data?.error ?? 'No se pudo eliminar el diseño.')
+      setError(err.response?.data?.error ?? 'No se pudo eliminar el diseño.')
     }
   }
 
   return (
     <DashboardShell>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-navy">Mis diseños</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Crea banners, promociones y piezas visuales con el editor libre.
+          <h1 className="text-[28px] font-extrabold tracking-tight text-navy">Mis diseños</h1>
+          <p className="mt-1.5 text-[14px] text-[#4A5568]">
+            Crea tu carta, promociones y piezas para redes con el editor libre.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShowTemplates(true)}
-          className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600"
+          className="inline-flex h-11 items-center gap-2 rounded-[9px] bg-orange px-5 text-[13.5px] font-semibold text-white hover:bg-orange-dark"
         >
-          + Nuevo diseño
+          <PlusIcon /> Nuevo diseño
         </button>
       </div>
 
-      {loading && <p className="text-sm text-gray-400">Cargando diseños...</p>}
+      {error && (
+        <p className="mb-4 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-2.5 text-[13px] text-[#B91C1C]">
+          {error}
+        </p>
+      )}
+
+      {loading && <p className="text-sm text-[#8A94A6]">Cargando diseños...</p>}
 
       {!loading && documents.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center text-sm text-gray-400">
-          Aún no tienes diseños. Crea el primero para empezar.
+        <div className="flex flex-col items-center rounded-[14px] border border-dashed border-[#E2E8F0] bg-white px-6 py-14 text-center">
+          <p className="text-[15px] font-bold text-navy">Aún no tienes diseños</p>
+          <p className="mt-1.5 max-w-sm text-[13.5px] text-[#4A5568]">
+            Empieza con una plantilla o en blanco. Puedes insertar tus platos con su precio y se actualizan solos.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowTemplates(true)}
+            className="mt-5 inline-flex h-10 items-center gap-2 rounded-[9px] bg-navy px-4 text-[13px] font-semibold text-white hover:bg-navy-hover"
+          >
+            <PlusIcon /> Crear mi primer diseño
+          </button>
         </div>
       )}
 
@@ -205,31 +247,33 @@ function Editor() {
           {documents.map((doc) => (
             <div
               key={doc.id}
-              className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white hover:border-orange-300"
+              className="group relative flex flex-col overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white transition-colors hover:border-orange"
             >
-              <Link to={`/editor/${doc.id}`} className="block bg-gray-50">
+              <Link to={`/editor/${doc.id}`} className="block bg-[#F6F8FC]">
                 {doc.data_json?.canvas ? (
                   <TemplatePreview canvas={doc.data_json.canvas} elements={doc.data_json.elements ?? []} />
                 ) : (
-                  <div className="flex aspect-[4/5] items-center justify-center text-gray-300">
-                    <span className="text-3xl">🎨</span>
-                  </div>
+                  <div className="aspect-[4/5]" />
                 )}
               </Link>
-              <div className="flex items-center justify-between gap-2 border-t border-gray-100 p-3">
+              <div className="flex items-center justify-between gap-2 border-t border-[#E2E8F0] p-3">
                 <div className="min-w-0">
-                  <Link to={`/editor/${doc.id}`} className="block truncate text-sm font-medium text-gray-800 hover:text-orange-600">
+                  <Link
+                    to={`/editor/${doc.id}`}
+                    className="block truncate text-[13.5px] font-semibold text-navy hover:text-orange-dark"
+                  >
                     {doc.title}
                   </Link>
-                  <p className="text-xs text-gray-400">Editado el {formatFecha(doc.updated_at)}</p>
+                  <p className="text-xs text-[#8A94A6]">Editado el {formatFecha(doc.updated_at)}</p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleDelete(doc.id)}
-                  className="shrink-0 rounded-md p-1.5 text-gray-300 opacity-0 hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                  onClick={() => setAEliminar(doc)}
+                  className="shrink-0 rounded-[7px] p-1.5 text-[#8A94A6] hover:bg-[#FEF2F2] hover:text-[#DC2626] sm:opacity-0 sm:group-hover:opacity-100"
                   title="Eliminar"
+                  aria-label={`Eliminar ${doc.title}`}
                 >
-                  🗑
+                  <TrashIcon />
                 </button>
               </div>
             </div>
@@ -246,6 +290,29 @@ function Editor() {
           onPickTemplate={handleUseTemplate}
           onPickLocked={() => navigate('/subscription')}
         />
+      )}
+
+      {aEliminar && (
+        <Modal onClose={() => setAEliminar(null)}>
+          <h3 className="text-base font-bold text-navy">¿Eliminar “{aEliminar.title}”?</h3>
+          <p className="mt-2 text-[13.5px] text-[#4A5568]">Esta acción no se puede deshacer.</p>
+          <div className="mt-5 flex justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setAEliminar(null)}
+              className="h-10 rounded-[9px] px-4 text-[13px] font-semibold text-[#4A5568] hover:bg-[#F6F8FC]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarEliminar}
+              className="h-10 rounded-[9px] bg-[#DC2626] px-4 text-[13px] font-semibold text-white hover:bg-[#B91C1C]"
+            >
+              Eliminar
+            </button>
+          </div>
+        </Modal>
       )}
     </DashboardShell>
   )

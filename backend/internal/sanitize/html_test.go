@@ -61,6 +61,30 @@ func TestHTML_PreservaEstilosDelExportador(t *testing.T) {
 	}
 }
 
+// El bloque de plato vinculado tiene que sobrevivir entero: si se pierden
+// los data-kk-*, el menú público ya no puede poner el precio actual.
+func TestHTML_PreservaBloqueDePlato(t *testing.T) {
+	in := `<div data-kk-producto="42" style="position:absolute;left:10px;top:20px;width:300px;height:80px;z-index:5;box-sizing:border-box;opacity:1;font-family:Inter, sans-serif;color:#111827;display:flex;flex-direction:column;gap:6px;overflow:hidden;">` +
+		`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:11px;font-size:22px;font-weight:700;line-height:1.2;">` +
+		`<span data-kk-campo="nombre">Lomo saltado</span><span data-kk-campo="precio" style="color:#FD761A;flex-shrink:0;white-space:nowrap;">S/ 32.00</span></div>` +
+		`<div data-kk-campo="descripcion" style="font-size:14px;line-height:1.35;opacity:0.8;font-weight:400;">Con papas</div></div>`
+	out := HTML(in)
+	for _, esperado := range []string{
+		`data-kk-producto="42"`, `data-kk-campo="nombre"`, `data-kk-campo="precio"`, `data-kk-campo="descripcion"`,
+		"display: flex", "flex-direction: column", "justify-content: space-between", "align-items: baseline",
+		"gap: 11px", "flex-shrink: 0", "white-space: nowrap",
+	} {
+		if !strings.Contains(out, esperado) {
+			t.Errorf("se perdió %q\n  out: %s", esperado, out)
+		}
+	}
+
+	malo := HTML(`<div data-kk-producto="1 onclick=x" data-kk-campo="otro">x</div>`)
+	if strings.Contains(malo, "data-kk") {
+		t.Errorf("dejó pasar un data-kk inválido: %s", malo)
+	}
+}
+
 func TestHTML_BloqueaCSSPeligroso(t *testing.T) {
 	cases := []string{
 		`<script>alert(1)</script>`,

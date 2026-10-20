@@ -170,14 +170,18 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 	// El menú principal siempre existe una vez creado el primer menú (ver
 	// MenuHandler.Create); menuPublicado indica si alguna vez se publicó,
 	// para que el Dashboard pueda ofrecer "Publicar" o "Publicar cambios".
+	// menuEsDiseno: lo publicado es un diseño del Editor (contenido.diseno_html)
+	// en vez de la lista de platos; el Dashboard ofrece volver a la lista.
 	var idMenuPrincipal *int
-	var menuPublicado bool
+	var menuPublicado, menuEsDiseno bool
 	_ = h.DB.QueryRow(ctx,
 		`SELECT m.id_menu,
-		        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = m.id_menu AND mv.estado = 'publicada')
+		        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = m.id_menu AND mv.estado = 'publicada'),
+		        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = m.id_menu AND mv.estado = 'publicada'
+		               AND mv.contenido ? 'diseno_html')
 		 FROM menu m WHERE m.id_restaurante = $1 AND m.es_principal AND m.activo`,
 		idRestaurante,
-	).Scan(&idMenuPrincipal, &menuPublicado)
+	).Scan(&idMenuPrincipal, &menuPublicado, &menuEsDiseno)
 
 	c.JSON(http.StatusOK, gin.H{
 		"visitas_30d":        visitas30d,
@@ -189,6 +193,7 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		"max_local":          maxLocal,
 		"id_menu_principal":  idMenuPrincipal,
 		"menu_publicado":     menuPublicado,
+		"menu_es_diseno":     menuEsDiseno,
 	})
 }
 

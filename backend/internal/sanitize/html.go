@@ -63,6 +63,10 @@ func buildPolicy() *bluemonday.Policy {
 	p.AllowAttrs("src", "alt").OnElements("img")
 	p.AllowAttrs("href", "target", "rel").OnElements("a")
 	p.AllowURLSchemes("https", "http", "data")
+	// Bloques de plato vinculados (ver lib/disenoProductos.js): el menú
+	// público busca estos atributos para poner nombre/precio actuales.
+	p.AllowAttrs("data-kk-producto").Matching(regexp.MustCompile(`^[0-9]+$`)).OnElements("div")
+	p.AllowAttrs("data-kk-campo").Matching(regexp.MustCompile(`^(nombre|precio|descripcion)$`)).OnElements("div", "span")
 	p.RequireNoFollowOnLinks(true)
 	p.AddTargetBlankToFullyQualifiedLinks(true)
 
@@ -90,6 +94,14 @@ func buildPolicy() *bluemonday.Policy {
 		p.AllowStyles("border").Matching(borderValue).OnElements(el)
 		p.AllowStyles("filter").Matching(filterValue).OnElements(el)
 		p.AllowStyles("clip-path").MatchingEnum(clipPathEnum...).OnElements(el)
+		// Maquetación interna del bloque de plato (nombre ··· precio).
+		p.AllowStyles("display").MatchingEnum("flex", "block").OnElements(el)
+		p.AllowStyles("flex-direction").MatchingEnum("row", "column").OnElements(el)
+		p.AllowStyles("justify-content").MatchingEnum("flex-start", "center", "flex-end", "space-between").OnElements(el)
+		p.AllowStyles("align-items").MatchingEnum("flex-start", "center", "flex-end", "baseline", "stretch").OnElements(el)
+		p.AllowStyles("gap").Matching(pxValue).OnElements(el)
+		p.AllowStyles("flex-shrink").Matching(unitlessNum).OnElements(el)
+		p.AllowStyles("white-space").MatchingEnum("nowrap", "normal", "pre-wrap").OnElements(el)
 	}
 
 	return p

@@ -4,6 +4,7 @@ import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import DisenoEscalado from '../components/DisenoEscalado'
 import { useRestaurante } from '../context/RestauranteContext'
+import { useLocal } from '../context/LocalContext'
 import { documentToHtml } from '../lib/editorExport'
 import { TEMPLATES } from '../lib/editorTemplates'
 import { cargarFuentesDelEditor } from '../lib/fuentes'
@@ -128,7 +129,9 @@ function TemplateModal({ onClose, onPickBlank, onPickTemplate, onPickLocked, cre
 function Editor() {
   const navigate = useNavigate()
   const { restaurante } = useRestaurante()
+  const { localActivo } = useLocal()
   const idRestaurante = restaurante?.id_restaurante
+  const idMenuActivo = localActivo?.id_menu
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -142,13 +145,16 @@ function Editor() {
     cargarFuentesDelEditor()
   }, [])
 
+  // Recargar documentos cuando cambia el local activo
   useEffect(() => {
+    setLoading(true)
+    const url = idMenuActivo ? `/editor?id_menu=${idMenuActivo}` : '/editor'
     apiClient
-      .get('/editor')
+      .get(url)
       .then(({ data }) => setDocuments(data))
       .catch(() => setError('No se pudieron cargar tus diseños.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [idMenuActivo])
 
   // Determina si el restaurante activo puede usar las plantillas del editor
   // (beneficio Pro/Enterprise). Sin restaurante o sin suscripción activa se
@@ -178,6 +184,7 @@ function Editor() {
     try {
       const { data } = await apiClient.post('/editor/save', {
         title: template.name,
+        id_menu: idMenuActivo ?? null,
         data_json: { canvas, elements },
         html_content: documentToHtml({ canvas, elements }),
       })
@@ -206,7 +213,9 @@ function Editor() {
         <div>
           <h1 className="text-[28px] font-extrabold tracking-tight text-navy">Mis diseños</h1>
           <p className="mt-1.5 text-[14px] text-[#4A5568]">
-            Crea tu carta, promociones y piezas para redes con el editor libre.
+            {localActivo
+              ? <>Diseños de <span className="font-semibold text-navy">{localActivo.nombre}</span></>
+              : 'Crea tu carta, promociones y piezas para redes con el editor libre.'}
           </p>
         </div>
         <button
@@ -217,6 +226,12 @@ function Editor() {
           <PlusIcon /> Nuevo diseño
         </button>
       </div>
+
+      {localActivo && !localActivo.id_menu && (
+        <div className="mb-4 rounded-[9px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2.5 text-[13px] text-[#B91C1C]">
+          Este local no tiene menú asignado. Ejecuta la migración <code>0014_backfill_local_menus.sql</code> en la base de datos y reinicia el servidor.
+        </div>
+      )}
 
       {error && (
         <p className="mb-4 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-2.5 text-[13px] text-[#B91C1C]">
@@ -286,7 +301,7 @@ function Editor() {
           creating={creating}
           plantillasDisponibles={plantillasDisponibles}
           onClose={() => setShowTemplates(false)}
-          onPickBlank={() => navigate('/editor/new')}
+          onPickBlank={() => navigate(idMenuActivo ? `/editor/new?id_menu=${idMenuActivo}` : '/editor/new')}
           onPickTemplate={handleUseTemplate}
           onPickLocked={() => navigate('/subscription')}
         />

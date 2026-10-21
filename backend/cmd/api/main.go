@@ -8,6 +8,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	"marketeando/backend/internal/cloudinaryutil"
 	"marketeando/backend/internal/config"
 	"marketeando/backend/internal/culqi"
 	"marketeando/backend/internal/database"
@@ -17,6 +18,10 @@ import (
 func main() {
 	cfg := config.Load()
 	culqi.Init(cfg.CulqiSecretKey)
+
+	if err := cloudinaryutil.Init(cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret); err != nil {
+		log.Fatalf("cloudinary init failed: %v", err)
+	}
 
 	ctx := context.Background()
 	db, err := database.Connect(ctx, cfg.DatabaseURL)

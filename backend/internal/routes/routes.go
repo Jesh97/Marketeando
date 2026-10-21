@@ -22,6 +22,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 	editorHandler := handlers.NewEditorHandler(db, uploadDir)
 	culqiWebhookHandler := handlers.NewCulqiWebhookHandler(db)
 	qrPersonalizacionHandler := handlers.NewQRPersonalizacionHandler(db, uploadDir)
+	localHandler := handlers.NewLocalHandler(db)
 
 	api := router.Group("/api")
 	{
@@ -41,6 +42,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 		}
 		api.GET("/planes", planHandler.List)
 		api.GET("/public/menu/:subdominio", publicHandler.MenuPorSubdominio)
+		api.GET("/public/menu/:subdominio/:local_slug", publicHandler.MenuPorLocalSlug)
 
 		// Notificaciones de Culqi: no llevan nuestro JWT, solo se puede
 		// confiar en ellas re-consultando el cargo contra la API de Culqi.
@@ -110,6 +112,15 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 					qr.GET("", qrPersonalizacionHandler.Get)
 					qr.PUT("", qrPersonalizacionHandler.Update)
 					qr.POST("/logo", qrPersonalizacionHandler.SubirLogo)
+				}
+
+				locales := mio.Group("/locales")
+				{
+					locales.GET("", localHandler.List)
+					locales.POST("", localHandler.Create)
+					locales.PUT("/:id_local", localHandler.Update)
+					locales.DELETE("/:id_local", localHandler.Delete)
+					locales.POST("/:id_local/replicar-carta", localHandler.ReplicarCarta)
 				}
 
 				metodoPago := mio.Group("/metodo-pago")

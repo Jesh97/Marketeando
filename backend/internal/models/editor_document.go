@@ -8,6 +8,7 @@ import (
 type EditorDocument struct {
 	ID          int             `json:"id"`
 	IDUsuario   int             `json:"id_usuario"`
+	IDMenu      *int            `json:"id_menu"`
 	Title       string          `json:"title"`
 	DataJSON    json.RawMessage `json:"data_json"`
 	HTMLContent string          `json:"html_content"`

@@ -7,22 +7,28 @@ import (
 )
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	JWTSecret      string
-	UploadDir      string
-	CulqiSecretKey string
+	Port                  string
+	DatabaseURL           string
+	JWTSecret             string
+	UploadDir             string
+	CulqiSecretKey        string
+	CloudinaryCloudName   string
+	CloudinaryAPIKey      string
+	CloudinaryAPISecret   string
 }
 
 func Load() Config {
 	_ = godotenv.Load()
 
 	return Config{
-		Port:           getEnv("PORT", "8080"),
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://postgres:070905@localhost:5433/Marketeando?sslmode=disable"),
-		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-me"),
-		UploadDir:      getEnv("UPLOAD_DIR", "./uploads"),
-		CulqiSecretKey: getEnv("CULQI_SECRET_KEY", ""),
+		Port:                getEnv("PORT", "8080"),
+		DatabaseURL:         getEnv("DATABASE_URL", "postgres://postgres:71097191@localhost:5432/Marketing?sslmode=disable"),
+		JWTSecret:           getEnv("JWT_SECRET", "dev-secret-change-me"),
+		UploadDir:           getEnv("UPLOAD_DIR", "./uploads"),
+		CulqiSecretKey:      getEnv("CULQI_SECRET_KEY", ""),
+		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 	}
 }
 

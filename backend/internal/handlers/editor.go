@@ -5,10 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -41,65 +38,13 @@ var extensionesPermitidas = map[string]string{
 }
 
 // Upload recibe un multipart form-data con el campo "file", valida que sea
-// una imagen soportada y la guarda con un nombre generado al azar.
+// una imagen soportada y la sube a Cloudinary.
 func (h *EditorHandler) Upload(c *gin.Context) {
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "falta el archivo (campo 'file')"})
-		return
-	}
-	if fileHeader.Size > maxUploadBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 10MB"})
-		return
-	}
-
-	file, err := fileHeader.Open()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
-		return
-	}
-	defer file.Close()
-
-	head := make([]byte, 512)
-	n, _ := io.ReadFull(file, head)
-	contentType := http.DetectContentType(head[:n])
-
-	ext, ok := extensionesPermitidas[contentType]
+	url, ok := subirImagen(c, "editor")
 	if !ok {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "formato no soportado (usa png, jpg, webp o gif)"})
 		return
 	}
-
-	name, err := randomFilename()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo generar el archivo"})
-		return
-	}
-	name += ext
-
-	dir := filepath.Join(h.UploadDir, "editor")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo preparar el almacenamiento"})
-		return
-	}
-
-	dest, err := os.Create(filepath.Join(dir, name))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	defer dest.Close()
-
-	if _, err := dest.Write(head[:n]); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	if _, err := io.Copy(dest, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"url": "/uploads/editor/" + name})
+	c.JSON(http.StatusOK, gin.H{"url": url})
 }
 
 func randomFilename() (string, error) {
@@ -110,17 +55,30 @@ func randomFilename() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-// List devuelve los documentos del usuario autenticado. Incluye data_json
-// (lo usa el frontend para pintar una miniatura de cada diseño) pero no
-// html_content, que es más pesado y redundante: la miniatura se arma en el
-// cliente a partir de data_json con la misma función que exporta el editor.
+// List devuelve los documentos del usuario. Con ?id_menu=N filtra los del
+// local específico; sin él devuelve todos (para compatibilidad).
 func (h *EditorHandler) List(c *gin.Context) {
-	rows, err := h.DB.Query(
-		c.Request.Context(),
-		`SELECT id, title, data_json, created_at, updated_at FROM editor_documents
-		 WHERE id_usuario = $1 ORDER BY updated_at DESC`,
-		currentUserID(c),
+	ctx := c.Request.Context()
+	idUsuario := currentUserID(c)
+
+	var (
+		rows pgx.Rows
+		err  error
 	)
+	if idMenuStr := c.Query("id_menu"); idMenuStr != "" {
+		idMenu, _ := strconv.Atoi(idMenuStr)
+		rows, err = h.DB.Query(ctx,
+			`SELECT id, title, data_json, created_at, updated_at FROM editor_documents
+			 WHERE id_usuario = $1 AND id_menu = $2 ORDER BY updated_at DESC`,
+			idUsuario, idMenu,
+		)
+	} else {
+		rows, err = h.DB.Query(ctx,
+			`SELECT id, title, data_json, created_at, updated_at FROM editor_documents
+			 WHERE id_usuario = $1 ORDER BY updated_at DESC`,
+			idUsuario,
+		)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -152,10 +110,10 @@ func (h *EditorHandler) Get(c *gin.Context) {
 	var d models.EditorDocument
 	err = h.DB.QueryRow(
 		c.Request.Context(),
-		`SELECT id, id_usuario, title, data_json, html_content, created_at, updated_at
+		`SELECT id, id_usuario, id_menu, title, data_json, html_content, created_at, updated_at
 		 FROM editor_documents WHERE id = $1 AND id_usuario = $2`,
 		id, currentUserID(c),
-	).Scan(&d.ID, &d.IDUsuario, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
+	).Scan(&d.ID, &d.IDUsuario, &d.IDMenu, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "documento no encontrado"})
 		return
@@ -170,6 +128,7 @@ func (h *EditorHandler) Get(c *gin.Context) {
 
 type saveDocumentRequest struct {
 	ID          *int            `json:"id"`
+	IDMenu      *int            `json:"id_menu"`
 	Title       string          `json:"title" binding:"required"`
 	DataJSON    json.RawMessage `json:"data_json" binding:"required"`
 	HTMLContent string          `json:"html_content"`
@@ -193,11 +152,11 @@ func (h *EditorHandler) Save(c *gin.Context) {
 
 	if req.ID == nil {
 		err := h.DB.QueryRow(ctx,
-			`INSERT INTO editor_documents (id_usuario, title, data_json, html_content)
-			 VALUES ($1, $2, $3, $4)
-			 RETURNING id, id_usuario, title, data_json, html_content, created_at, updated_at`,
-			idUsuario, req.Title, req.DataJSON, cleanHTML,
-		).Scan(&d.ID, &d.IDUsuario, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
+			`INSERT INTO editor_documents (id_usuario, id_menu, title, data_json, html_content)
+			 VALUES ($1, $2, $3, $4, $5)
+			 RETURNING id, id_usuario, id_menu, title, data_json, html_content, created_at, updated_at`,
+			idUsuario, req.IDMenu, req.Title, req.DataJSON, cleanHTML,
+		).Scan(&d.ID, &d.IDUsuario, &d.IDMenu, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -209,9 +168,9 @@ func (h *EditorHandler) Save(c *gin.Context) {
 	err := h.DB.QueryRow(ctx,
 		`UPDATE editor_documents SET title = $1, data_json = $2, html_content = $3
 		 WHERE id = $4 AND id_usuario = $5
-		 RETURNING id, id_usuario, title, data_json, html_content, created_at, updated_at`,
+		 RETURNING id, id_usuario, id_menu, title, data_json, html_content, created_at, updated_at`,
 		req.Title, req.DataJSON, cleanHTML, *req.ID, idUsuario,
-	).Scan(&d.ID, &d.IDUsuario, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
+	).Scan(&d.ID, &d.IDUsuario, &d.IDMenu, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "documento no encontrado"})
 		return

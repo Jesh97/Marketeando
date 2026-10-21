@@ -5,13 +5,16 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { RestauranteProvider } from './context/RestauranteContext.jsx'
+import { LocalProvider } from './context/LocalContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <RestauranteProvider>
-          <App />
+          <LocalProvider>
+            <App />
+          </LocalProvider>
         </RestauranteProvider>
       </AuthProvider>
     </BrowserRouter>

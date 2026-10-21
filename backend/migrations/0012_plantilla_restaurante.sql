@@ -1,0 +1,2 @@
+ALTER TABLE restaurante
+  ADD COLUMN IF NOT EXISTS plantilla VARCHAR(50) NOT NULL DEFAULT 'costero';

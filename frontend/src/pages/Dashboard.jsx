@@ -4,8 +4,10 @@ import QRCode from 'qrcode'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
+import { useLocal } from '../context/LocalContext'
 import { imageToDataUrl, imageToLumaMap, imageToMask, urlToImage } from '../lib/logoMask'
 import { construirSvg, rasterizarPng } from '../lib/qrEngine'
+import { getPaleta } from '../utils/paletas'
 
 function EyeIcon() {
   return (
@@ -100,8 +102,26 @@ function QrCodeArt() {
   )
 }
 
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4 w-4 shrink-0">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function StoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-[17px] w-[17px] shrink-0">
+      <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
+      <path d="M9 21V12h6v9" />
+    </svg>
+  )
+}
+
 function Dashboard() {
   const { usuario, restaurante, loading: loadingRestaurante } = useRestaurante()
+  const { locales, localActivo, cambiarLocal, refresh: refreshLocales } = useLocal()
   const [stats, setStats] = useState(null)
   const [copied, setCopied] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState(null)
@@ -110,20 +130,38 @@ function Dashboard() {
   const [confirmarVolverAPlatos, setConfirmarVolverAPlatos] = useState(false)
   const [qrSvgPersonalizado, setQrSvgPersonalizado] = useState(null)
 
+  // Nueva sucursal modal
+  const [showModalLocal, setShowModalLocal] = useState(false)
+  const [nuevoNombreLocal, setNuevoNombreLocal] = useState('')
+  const [replicarDeLocal, setReplicarDeLocal] = useState('none')
+  const [creandoLocal, setCreandoLocal] = useState(false)
+  const [errorLocal, setErrorLocal] = useState('')
+
+  // Re-fetch stats cuando cambia el local activo para mostrar el estado
+  // correcto de menú (publicado/borrador) por sucursal.
   useEffect(() => {
     if (!restaurante) return
+    const params = localActivo ? `?id_local=${localActivo.id_local}` : ''
     apiClient
-      .get(`/restaurantes/${restaurante.id_restaurante}/dashboard`)
+      .get(`/restaurantes/${restaurante.id_restaurante}/dashboard${params}`)
       .then(({ data }) => setStats(data))
       .catch(() => setStats(null))
-  }, [restaurante])
+  }, [restaurante, localActivo?.id_local])
 
   const primerNombre = usuario?.nombre?.split(' ')[0] ?? ''
   const subdominio = stats?.subdominio ?? restaurante?.subdominio
-  const enlacePublico = subdominio ? `${window.location.origin}/menu/${subdominio}` : ''
-  // El QR lleva ?origen=qr para que el backend distinga escaneos de clics al
-  // enlace copiado (ver visita_menu / "Escaneos de QR" arriba).
-  const enlaceQr = subdominio ? `${enlacePublico}?origen=qr` : ''
+
+  // URL pública incluye el slug del local activo para servir su carta propia
+  const localSlug = localActivo?.slug
+  const enlacePublico = subdominio && localSlug
+    ? `${window.location.origin}/menu/${subdominio}/${localSlug}`
+    : subdominio
+      ? `${window.location.origin}/menu/${subdominio}`
+      : ''
+  const enlaceQr = enlacePublico ? `${enlacePublico}?origen=qr` : ''
+
+  // ID del menú a publicar: siempre el menú del local activo
+  const idMenuActivo = localActivo?.id_menu ?? stats?.id_menu_principal
 
   useEffect(() => {
     if (!enlaceQr) {
@@ -244,12 +282,12 @@ function Dashboard() {
   }
 
   const publicarMenu = async () => {
-    if (!restaurante || !stats?.id_menu_principal) return
+    if (!restaurante || !idMenuActivo) return
     setPublishing(true)
     setPublishError('')
     try {
       await apiClient.post(
-        `/restaurantes/${restaurante.id_restaurante}/menus/${stats.id_menu_principal}/publicar`,
+        `/restaurantes/${restaurante.id_restaurante}/menus/${idMenuActivo}/publicar`,
       )
       setStats((prev) => (prev ? { ...prev, menu_publicado: true } : prev))
     } catch (err) {
@@ -263,11 +301,11 @@ function Dashboard() {
   // de platos normal (sin diseno_html) y lo publica. El diseño no se borra,
   // sigue en "Mis diseños" para volver a publicarlo cuando se quiera.
   const volverAMenuDePlatos = async () => {
-    if (!restaurante || !stats?.id_menu_principal) return
+    if (!restaurante || !idMenuActivo) return
     setConfirmarVolverAPlatos(false)
     setPublishing(true)
     setPublishError('')
-    const base = `/restaurantes/${restaurante.id_restaurante}/menus/${stats.id_menu_principal}`
+    const base = `/restaurantes/${restaurante.id_restaurante}/menus/${idMenuActivo}`
     try {
       await apiClient.put(`${base}/borrador`, { contenido: { schema_version: 1, bloques: [], tema: {} } })
       await apiClient.post(`${base}/publicar`)
@@ -276,6 +314,39 @@ function Dashboard() {
       setPublishError(err.response?.data?.error ?? 'No se pudo volver al menú de platos.')
     } finally {
       setPublishing(false)
+    }
+  }
+
+  const crearSucursal = async () => {
+    if (!nuevoNombreLocal.trim()) return
+    setCreandoLocal(true)
+    setErrorLocal('')
+    try {
+      const { data: nuevoLocal } = await apiClient.post(
+        `/restaurantes/${restaurante.id_restaurante}/locales`,
+        { nombre: nuevoNombreLocal.trim() },
+      )
+      // Carta replication is best-effort: if it fails the local was still
+      // created successfully, so we only warn instead of blocking.
+      if (replicarDeLocal !== 'none') {
+        try {
+          await apiClient.post(
+            `/restaurantes/${restaurante.id_restaurante}/locales/${nuevoLocal.id_local}/replicar-carta`,
+            { id_local_origen: parseInt(replicarDeLocal, 10) },
+          )
+        } catch {
+          setErrorLocal('Sucursal creada, pero no se pudo copiar la carta. Puedes editarla desde el editor.')
+        }
+      }
+      await refreshLocales()
+      cambiarLocal(nuevoLocal.id_local)
+      setShowModalLocal(false)
+      setNuevoNombreLocal('')
+      setReplicarDeLocal('none')
+    } catch (err) {
+      setErrorLocal(err.response?.data?.error ?? 'Error al crear la sucursal')
+    } finally {
+      setCreandoLocal(false)
     }
   }
 
@@ -298,11 +369,15 @@ function Dashboard() {
     )
   }
 
+  const paleta = getPaleta(restaurante.plantilla)
+  const iniciales = restaurante.nombre.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+
   return (
     <DashboardShell>
+      {/* Header */}
       <div className="mb-9 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-[32px] font-extrabold tracking-tight text-navy">
+          <h1 className="text-[32px] font-extrabold tracking-tight" style={{ color: paleta.primary }}>
             Bienvenido de nuevo{primerNombre ? `, ${primerNombre}` : ''}
           </h1>
           <p className="mt-2 text-[15px] text-[#4A5568]">
@@ -310,32 +385,37 @@ function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2.5 rounded-full border border-[#E2E8F0] bg-white py-1.5 pl-1.5 pr-4">
-          <div className="h-8 w-8 rounded-full bg-[#C97B5F]" />
-          <span className="text-[13.5px] font-bold text-navy">{restaurante.nombre}</span>
+          <div
+            className="h-8 w-8 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-extrabold shrink-0"
+            style={{ background: paleta.acento, color: '#fff' }}
+          >
+            {restaurante.url_logo
+              ? <img src={restaurante.url_logo} alt="Logo" className="h-full w-full object-cover" />
+              : iniciales
+            }
+          </div>
+          <span className="text-[13.5px] font-bold" style={{ color: paleta.primary }}>{restaurante.nombre}</span>
         </div>
       </div>
 
+      {/* Stats */}
       <div className="mb-6 grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
           <div className="flex items-center justify-between">
-            <span className="text-[13.5px] font-semibold text-[#4A5568]">
-              Visitas al Menú (30d)
-            </span>
+            <span className="text-[13.5px] font-semibold text-[#4A5568]">Visitas al Menú (30d)</span>
             <EyeIcon />
           </div>
-          <div className="mt-2.5 text-[34px] font-extrabold text-navy">
+          <div className="mt-2.5 text-[34px] font-extrabold" style={{ color: paleta.primary }}>
             {stats ? stats.visitas_30d : '—'}
           </div>
         </div>
 
         <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
           <div className="flex items-center justify-between">
-            <span className="text-[13.5px] font-semibold text-[#4A5568]">
-              Escaneos de QR (30d)
-            </span>
-            <QrIcon />
+            <span className="text-[13.5px] font-semibold text-[#4A5568]">Escaneos de QR (30d)</span>
+            <QrIcon stroke={paleta.acento} />
           </div>
-          <div className="mt-2.5 text-[34px] font-extrabold text-navy">
+          <div className="mt-2.5 text-[34px] font-extrabold" style={{ color: paleta.primary }}>
             {stats ? stats.escaneos_qr_30d : '—'}
           </div>
         </div>
@@ -350,46 +430,52 @@ function Dashboard() {
           </div>
           <Link
             to="/products"
-            className="mt-1.5 inline-block text-xs font-bold text-orange-dark hover:underline"
+            className="mt-1.5 inline-block text-xs font-bold hover:underline"
+            style={{ color: paleta.acento }}
           >
             Ver productos →
           </Link>
         </div>
 
-        <div className="rounded-[14px] border border-navy bg-navy p-[22px]">
+        <div className="rounded-[14px] p-[22px]" style={{ background: paleta.darkBg, borderWidth: 1, borderColor: paleta.darkBg }}>
           <div className="flex items-center justify-between">
-            <span className="text-[13.5px] font-semibold text-[#A9B4C8]">Plan Actual</span>
+            <span className="text-[13.5px] font-semibold" style={{ color: paleta.darkSub }}>Plan Actual</span>
             <TrophyIcon />
           </div>
-          <div className="mt-2.5 text-2xl font-extrabold text-white">
+          <div className="mt-2.5 text-2xl font-extrabold" style={{ color: paleta.darkText }}>
             {stats?.plan ?? 'Sin plan'}
           </div>
           <Link
             to="/subscription"
-            className="mt-1.5 inline-block text-xs font-semibold text-[#A9B4C8] hover:text-white"
+            className="mt-1.5 inline-block text-xs font-semibold hover:underline"
+            style={{ color: paleta.darkSub }}
           >
             {stats?.plan ? 'Gestionar suscripción →' : 'Elegir un plan →'}
           </Link>
         </div>
       </div>
 
+      {/* Quick actions */}
       <div className="mb-6 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
         <Link
           to="/products"
-          className="flex h-[52px] items-center justify-center rounded-[9px] bg-orange text-[13.5px] font-semibold text-white hover:bg-orange-dark"
+          className="flex h-[52px] items-center justify-center rounded-[9px] text-[13.5px] font-semibold text-white"
+          style={{ background: paleta.acento }}
         >
           + Agregar Producto
         </Link>
         <Link
           to="/editor"
-          className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+          className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold hover:bg-[#F6F8FC]"
+          style={{ color: paleta.primary }}
         >
           Abrir Editor
         </Link>
         {subdominio ? (
           <Link
             to={`/menu/${subdominio}`}
-            className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+            className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold hover:bg-[#F6F8FC]"
+            style={{ color: paleta.primary }}
           >
             Ver Menú Público
           </Link>
@@ -400,16 +486,56 @@ function Dashboard() {
         )}
         <Link
           to="/subscription"
-          className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+          className="flex h-[52px] items-center justify-center rounded-[9px] border border-[#E2E8F0] bg-white text-[13.5px] font-semibold hover:bg-[#F6F8FC]"
+          style={{ color: paleta.primary }}
         >
           Actualizar Plan
         </Link>
       </div>
 
+      {/* Sucursales — visible only when plan allows multiple locals */}
+      {stats?.max_local > 1 && (
+        <div className="mb-6 rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2" style={{ color: paleta.primary }}>
+              <StoreIcon />
+              <h2 className="text-base font-bold">Sucursales</h2>
+              <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: paleta.tintBg, color: paleta.tintText }}>
+                {locales.length} / {stats.max_local}
+              </span>
+            </div>
+            {locales.length < stats.max_local && (
+              <button
+                type="button"
+                onClick={() => { setShowModalLocal(true); setErrorLocal('') }}
+                className="flex items-center gap-1.5 rounded-[9px] px-3.5 py-2 text-[13px] font-semibold text-white"
+                style={{ background: paleta.acento }}
+              >
+                <PlusIcon /> Nueva sucursal
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            {locales.map((l) => (
+              <div
+                key={l.id_local}
+                className="flex items-center gap-2 rounded-[9px] border px-3.5 py-2 text-[13px] font-semibold"
+                style={{ borderColor: paleta.tintBorder, color: paleta.primary, background: paleta.tintBg }}
+              >
+                <StoreIcon />
+                {l.nombre}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[1.5fr_1fr]">
+        {/* Subdominio */}
         <div className="flex flex-col rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-navy">Tu subdominio en vivo</h2>
+            <h2 className="text-base font-bold" style={{ color: paleta.primary }}>Tu subdominio en vivo</h2>
             {stats && (
               <span
                 className="rounded-full px-2.5 py-1 text-[11px] font-bold"
@@ -426,15 +552,19 @@ function Dashboard() {
           <p className="mt-1.5 text-[13.5px] text-[#4A5568]">
             El enlace donde tus clientes ven el menú activo.
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-[#EEF3FF] px-4 py-3.5">
-            <span className="text-sm font-semibold text-navy">
+          <div
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] px-4 py-3.5"
+            style={{ background: paleta.tintBg, borderWidth: 1, borderColor: paleta.tintBorder }}
+          >
+            <span className="text-sm font-semibold" style={{ color: paleta.tintText }}>
               {subdominio}
-              <span className="text-orange-dark">.kartakamay.app</span>
+              <span style={{ color: paleta.acento }}>.kartakamay.app</span>
             </span>
             <button
               type="button"
               onClick={copiarEnlace}
-              className="h-[34px] rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-[12.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+              className="h-[34px] rounded-[9px] border border-[#E2E8F0] bg-white px-3.5 text-[12.5px] font-semibold hover:bg-[#F6F8FC]"
+              style={{ color: paleta.primary }}
             >
               {copied ? '¡Copiado!' : 'Copiar Enlace'}
             </button>
@@ -444,47 +574,45 @@ function Dashboard() {
           <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
             <a
               href={enlacePublico ? `https://wa.me/?text=${encodeURIComponent(`Mira nuestra carta: ${enlacePublico}`)}` : undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!enlacePublico}
-              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:border-[#25D366] hover:text-[#128C7E] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              target="_blank" rel="noreferrer" aria-disabled={!enlacePublico}
+              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold hover:border-[#25D366] hover:text-[#128C7E] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              style={{ color: paleta.primary }}
             >
               <WhatsAppIcon /> WhatsApp
             </a>
             <a
               href={enlacePublico ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(enlacePublico)}` : undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!enlacePublico}
-              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:border-[#1877F2] hover:text-[#1877F2] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              target="_blank" rel="noreferrer" aria-disabled={!enlacePublico}
+              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold hover:border-[#1877F2] hover:text-[#1877F2] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              style={{ color: paleta.primary }}
             >
               <FacebookIcon /> Facebook
             </a>
             <a
               href={enlacePublico || undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!enlacePublico}
-              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:bg-[#F6F8FC] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              target="_blank" rel="noreferrer" aria-disabled={!enlacePublico}
+              className="flex h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold hover:bg-[#F6F8FC] aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              style={{ color: paleta.primary }}
             >
               <ExternalIcon /> Abrir menú
             </a>
           </div>
 
           {stats?.menu_es_diseno ? (
-            <div className="mb-5 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-[#C7D7FE] bg-[#EEF3FF] px-4 py-3 text-[12.5px] leading-relaxed text-navy">
+            <div
+              className="mb-5 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] px-4 py-3 text-[12.5px] leading-relaxed"
+              style={{ background: paleta.tintBg, borderWidth: 1, borderColor: paleta.tintBorder, color: paleta.primary }}
+            >
               <div className="flex flex-1 gap-2.5">
                 <InfoIcon />
-                <p>
-                  Tu menú público muestra un <span className="font-bold">diseño del Editor</span>. Los precios de
-                  los bloques de plato se actualizan solos.
-                </p>
+                <p>Tu menú público muestra un <span className="font-bold">diseño del Editor</span>. Los precios de los bloques de plato se actualizan solos.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setConfirmarVolverAPlatos(true)}
                 disabled={publishing}
-                className="shrink-0 rounded-[8px] border border-[#C7D7FE] bg-white px-3 py-1.5 text-[12px] font-semibold text-navy hover:bg-[#F6F8FC] disabled:opacity-50"
+                className="shrink-0 rounded-[8px] border bg-white px-3 py-1.5 text-[12px] font-semibold hover:bg-[#F6F8FC] disabled:opacity-50"
+                style={{ borderColor: paleta.tintBorder, color: paleta.primary }}
               >
                 Volver a la lista de platos
               </button>
@@ -492,33 +620,27 @@ function Dashboard() {
           ) : (
             <div className="mb-5 mt-5 flex gap-2.5 rounded-[10px] border border-[#FFE0C2] bg-[#FFF7EF] px-4 py-3 text-[12.5px] leading-relaxed text-[#7A4A1E]">
               <InfoIcon />
-              <p>
-                ¿Editaste platos, precios o el diseño? Pulsa <span className="font-bold">Publicar cambios</span> para
-                que tus clientes vean la última versión. El enlace y tu QR no cambian.
-              </p>
+              <p>¿Editaste platos, precios o el diseño? Pulsa <span className="font-bold">Publicar cambios</span> para que tus clientes vean la última versión. El enlace y tu QR no cambian.</p>
             </div>
           )}
 
           <button
             type="button"
             onClick={publicarMenu}
-            disabled={publishing || !stats?.id_menu_principal}
-            className="mt-auto h-10 w-full rounded-[9px] bg-orange text-[13px] font-semibold text-white hover:bg-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={publishing || !idMenuActivo}
+            className="mt-auto h-10 w-full rounded-[9px] text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: paleta.acento }}
           >
-            {publishing
-              ? 'Publicando...'
-              : stats?.menu_publicado
-                ? 'Publicar cambios'
-                : 'Publicar menú'}
+            {publishing ? 'Publicando...' : stats?.menu_publicado ? 'Publicar cambios' : 'Publicar menú'}
           </button>
           {publishError && <p className="mt-2 text-xs text-[#DC2626]">{publishError}</p>}
+
           {confirmarVolverAPlatos && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
               <div className="w-full max-w-sm rounded-[14px] bg-white p-6 shadow-xl">
-                <h3 className="text-base font-bold text-navy">¿Volver a la lista de platos?</h3>
+                <h3 className="text-base font-bold" style={{ color: paleta.primary }}>¿Volver a la lista de platos?</h3>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-[#4A5568]">
-                  Tu menú público volverá a mostrar tus platos por categoría. El diseño no se borra: sigue en
-                  Mis diseños y puedes volver a publicarlo cuando quieras.
+                  Tu menú público volverá a mostrar tus platos por categoría. El diseño no se borra: sigue en Mis diseños y puedes volver a publicarlo cuando quieras.
                 </p>
                 <div className="mt-5 flex justify-end gap-2.5">
                   <button
@@ -531,7 +653,8 @@ function Dashboard() {
                   <button
                     type="button"
                     onClick={volverAMenuDePlatos}
-                    className="h-10 rounded-[9px] bg-orange px-4 text-[13px] font-semibold text-white hover:bg-orange-dark"
+                    className="h-10 rounded-[9px] px-4 text-[13px] font-semibold text-white"
+                    style={{ background: paleta.acento }}
                   >
                     Sí, volver y publicar
                   </button>
@@ -541,9 +664,13 @@ function Dashboard() {
           )}
         </div>
 
+        {/* QR */}
         <div className="flex flex-col items-center rounded-[14px] border border-[#E2E8F0] bg-white p-[22px]">
-          <span className="self-start text-sm font-bold text-navy">Código QR Principal</span>
-          <div className="my-3.5 flex h-[220px] w-[220px] items-center justify-center overflow-hidden rounded-[10px] bg-navy">
+          <span className="self-start text-sm font-bold" style={{ color: paleta.primary }}>Código QR Principal</span>
+          <div
+            className="my-3.5 flex h-[220px] w-[220px] items-center justify-center overflow-hidden rounded-[10px]"
+            style={{ background: paleta.darkBg }}
+          >
             {qrSvgPersonalizado ? (
               <div
                 className="flex h-full w-full items-center justify-center bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
@@ -559,14 +686,16 @@ function Dashboard() {
             type="button"
             onClick={descargarQr}
             disabled={!qrDataUrl && !qrSvgPersonalizado}
-            className="h-9 w-full rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold text-navy hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-full rounded-[9px] border border-[#E2E8F0] bg-white text-[12.5px] font-semibold hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ color: paleta.primary }}
           >
             Descargar
           </button>
           {stats?.plan === 'Enterprise' ? (
             <Link
               to="/qr-personalizado"
-              className="mt-2 h-9 w-full rounded-[9px] bg-navy text-center text-[12.5px] font-semibold leading-9 text-white hover:bg-navy-hover"
+              className="mt-2 h-9 w-full rounded-[9px] text-center text-[12.5px] font-semibold leading-9 text-white"
+              style={{ background: paleta.darkBg }}
             >
               Personalizar QR
             </Link>
@@ -576,13 +705,83 @@ function Dashboard() {
                 <LockIcon /> Personalizar QR
               </span>
               <span className="text-[11px] text-[#8A94A6]">Disponible en el plan Empresarial</span>
-              <Link to="/subscription" className="text-[11.5px] font-bold text-orange-dark hover:underline">
+              <Link to="/subscription" className="text-[11.5px] font-bold hover:underline" style={{ color: paleta.acento }}>
                 Mejorar plan →
               </Link>
             </div>
           )}
         </div>
       </div>
+      {/* Modal nueva sucursal */}
+      {showModalLocal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[14px] bg-white p-6 shadow-xl">
+            <h3 className="text-base font-bold" style={{ color: paleta.primary }}>Nueva sucursal</h3>
+            <p className="mt-1.5 text-[13px] text-[#4A5568]">
+              Cada sucursal tiene su propia carta y código QR.
+            </p>
+
+            <label className="mt-4 block text-[12px] font-semibold text-[#4A5568]">
+              Nombre de la sucursal
+            </label>
+            <input
+              type="text"
+              value={nuevoNombreLocal}
+              onChange={(e) => setNuevoNombreLocal(e.target.value)}
+              placeholder="Ej. Miraflores, San Isidro…"
+              className="mt-1.5 w-full rounded-[9px] border border-[#E2E8F0] px-3.5 py-2.5 text-sm outline-none focus:border-current"
+              style={{ color: paleta.primary }}
+              onKeyDown={(e) => e.key === 'Enter' && crearSucursal()}
+            />
+
+            {locales.length > 0 && (
+              <>
+                <label className="mt-4 block text-[12px] font-semibold text-[#4A5568]">
+                  Carta inicial
+                </label>
+                <select
+                  value={replicarDeLocal}
+                  onChange={(e) => setReplicarDeLocal(e.target.value)}
+                  className="mt-1.5 w-full rounded-[9px] border border-[#E2E8F0] px-3.5 py-2.5 text-sm outline-none"
+                  style={{ color: paleta.primary }}
+                >
+                  <option value="none">Empezar vacío</option>
+                  {locales.map((l) => (
+                    <option key={l.id_local} value={String(l.id_local)}>
+                      Copiar carta de "{l.nombre}"
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {errorLocal && (
+              <p className="mt-3 rounded-[9px] bg-[#FEF2F2] px-3.5 py-2.5 text-[12.5px] text-[#DC2626]">
+                {errorLocal}
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => { setShowModalLocal(false); setNuevoNombreLocal(''); setReplicarDeLocal('none') }}
+                className="h-10 rounded-[9px] px-4 text-[13px] font-semibold text-[#4A5568] hover:bg-[#F6F8FC]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={crearSucursal}
+                disabled={creandoLocal || !nuevoNombreLocal.trim()}
+                className="h-10 rounded-[9px] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                style={{ background: paleta.acento }}
+              >
+                {creandoLocal ? 'Creando...' : 'Crear sucursal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   )
 }

@@ -5,38 +5,100 @@ import DisenoEscalado from '../components/DisenoEscalado'
 import { hidratarDiseno } from '../lib/disenoProductos'
 import { cargarFuentes, familiasEnHtml } from '../lib/fuentes'
 
+// Paletas por plantilla — mismos valores que el Onboarding
+const TEMAS_PLANTILLA = {
+  andino: {
+    headerBg:    '#1F2740',
+    headerText:  '#FFF8EC',
+    headerSub:   '#A9B4C8',
+    acento:      '#E8622A',
+    logoBg:      '#E8622A',
+    categoriasBg:'#1A2035',
+    cardBg:      '#FFFFFF',
+    cardBorder:  '#2D3A54',
+    fondoPagina: '#F0F2F7',
+    textoPrincipal: '#1F2740',
+    textoSub:    '#4A5568',
+    footer:      '#1F2740',
+  },
+  minimal: {
+    headerBg:    '#F6E1B3',
+    headerText:  '#4A2420',
+    headerSub:   '#8B6B5E',
+    acento:      '#8B5E3C',
+    logoBg:      '#8B5E3C',
+    categoriasBg:'#EDD99A',
+    cardBg:      '#FFFBF4',
+    cardBorder:  '#E8D5B0',
+    fondoPagina: '#FAF4E8',
+    textoPrincipal: '#4A2420',
+    textoSub:    '#6B4E3D',
+    footer:      '#4A2420',
+  },
+  costero: {
+    headerBg:    '#DBE9E5',
+    headerText:  '#1F2740',
+    headerSub:   '#4A6172',
+    acento:      '#565d79',
+    logoBg:      '#565d79',
+    categoriasBg:'#C8DEDA',
+    cardBg:      '#FFFFFF',
+    cardBorder:  '#C0D8D4',
+    fondoPagina: '#F0F7F5',
+    textoPrincipal: '#1F2740',
+    textoSub:    '#4A5568',
+    footer:      '#1F2740',
+  },
+}
+
+const DEFAULT_TEMA_PLANTILLA = TEMAS_PLANTILLA.costero
+
+// Colores de swatch como fallback cuando el plato no tiene imagen
 const SWATCHES = ['#F2C57C', '#C97B5F', '#7AACA6', '#D9A441', '#8B6BAE', '#E4A6A0']
+function swatchFor(id) { return SWATCHES[id % SWATCHES.length] }
 
-function swatchFor(idProducto) {
-  return SWATCHES[idProducto % SWATCHES.length]
+// Formatea el horario JSONB: { dias, desde, hasta } o { texto }
+function formatHorario(horario) {
+  if (!horario) return null
+  if (horario.texto) return horario.texto
+  if (horario.dias && horario.desde && horario.hasta) {
+    const dias = horario.dias.join(', ')
+    return `${dias} · ${horario.desde} – ${horario.hasta}`
+  }
+  return null
 }
 
-const DEFAULT_TEMA = {
-  color_acento: '#FD761A',
-  fondo: 'claro',
-  radio_borde: 16,
-  mostrar_precios: true,
-  mostrar_fotos: true,
-  filtro_alergenos: false,
-}
-
-function DishCard({ dish, tema }) {
+function DishCard({ dish, paleta, mostrarFotos, mostrarPrecios }) {
   return (
     <div
-      className={`flex gap-3.5 border p-4 ${
-        dish.agotado ? 'border-[#E2E8F0] bg-[#F3F4F6] opacity-60' : 'border-[#E2E8F0] bg-white'
-      }`}
-      style={{ borderRadius: `${tema.radio_borde}px` }}
+      className="flex gap-3.5 border p-4 transition-shadow hover:shadow-sm"
+      style={{
+        borderRadius: 14,
+        background: dish.agotado ? '#F3F4F6' : paleta.cardBg,
+        borderColor: paleta.cardBorder,
+        opacity: dish.agotado ? 0.65 : 1,
+      }}
     >
-      {tema.mostrar_fotos && (
+      {mostrarFotos && (
         <div
-          className="h-[76px] w-[76px] shrink-0 rounded-[10px]"
-          style={{ background: swatchFor(dish.id_producto), filter: dish.agotado ? 'grayscale(1)' : 'none' }}
-        />
+          className="h-[76px] w-[76px] shrink-0 rounded-[10px] overflow-hidden"
+          style={{
+            background: swatchFor(dish.id_producto),
+            filter: dish.agotado ? 'grayscale(1)' : 'none',
+          }}
+        >
+          {dish.url_imagen && (
+            <img
+              src={dish.url_imagen}
+              alt={dish.nombre}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
       )}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={`text-[15px] font-bold ${dish.agotado ? 'text-[#8A94A6]' : 'text-navy'}`}>
+          <p className="text-[15px] font-bold" style={{ color: paleta.textoPrincipal }}>
             {dish.nombre}
           </p>
           {dish.agotado ? (
@@ -44,24 +106,25 @@ function DishCard({ dish, tema }) {
               Agotado
             </span>
           ) : (
-            tema.mostrar_precios && (
-              <span className="shrink-0 text-[15px] font-bold text-navy">
+            mostrarPrecios && (
+              <span className="shrink-0 text-[15px] font-bold" style={{ color: paleta.acento }}>
                 S/ {dish.precio.toFixed(2)}
               </span>
             )
           )}
         </div>
         {dish.descripcion && (
-          <p className={`mt-1 text-[13px] leading-relaxed ${dish.agotado ? 'text-[#8A94A6]' : 'text-[#4A5568]'}`}>
+          <p className="mt-1 text-[13px] leading-relaxed" style={{ color: paleta.textoSub }}>
             {dish.descripcion}
           </p>
         )}
-        {tema.filtro_alergenos && dish.etiquetas?.length > 0 && (
+        {dish.etiquetas?.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {dish.etiquetas.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-[#EEF3FF] px-2 py-0.5 text-[10px] font-semibold text-navy"
+                className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ background: paleta.acento + '18', color: paleta.acento }}
               >
                 {tag}
               </span>
@@ -74,27 +137,25 @@ function DishCard({ dish, tema }) {
 }
 
 function PublicMenu() {
-  const { slug } = useParams()
+  const { slug, local_slug } = useParams()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [active, setActive] = useState(null)
 
   useEffect(() => {
+    const url = local_slug
+      ? `/public/menu/${slug}/${local_slug}`
+      : `/public/menu/${slug}`
     apiClient
-      .get(`/public/menu/${slug}`)
+      .get(url)
       .then(({ data }) => {
         setData(data)
-        // 'Otros' es la misma etiqueta de respaldo que usan `categorias` y
-        // `productosVisibles` para productos sin id_categoria; si difiere de
-        // acá, la pestaña activa nunca hace match y el menú se ve vacío.
         const primeraCategoria = data.productos.find((p) => p.categoria)?.categoria
         setActive(primeraCategoria ?? 'Otros')
       })
       .catch((err) => setError(err.response?.data?.error ?? 'No se pudo cargar el menú.'))
-  }, [slug])
+  }, [slug, local_slug])
 
-  // Diseño del Editor: los bloques de plato toman nombre/precio/agotado
-  // actuales, y se cargan solo las fuentes que el diseño usa.
   const disenoHtml = useMemo(() => {
     const html = data?.contenido?.diseno_html
     return html ? hidratarDiseno(html, data.productos ?? []) : ''
@@ -120,64 +181,86 @@ function PublicMenu() {
     )
   }
 
-  // Si el restaurante publicó un diseño libre desde el Editor (en vez del
-  // menú estructurado por categorías/productos), ese HTML manda: se escala
-  // al ancho de la pantalla sin importar el tamaño del lienzo original
-  // (800x1000, 1080x1920, etc.).
+  // Si publicó un diseño libre desde el Editor, ese HTML manda
   if (disenoHtml) {
     const disenoCanvas = data.contenido.diseno_canvas ?? { width: 800, height: 1000 }
+    const paleta = TEMAS_PLANTILLA[data.restaurante.plantilla] ?? DEFAULT_TEMA_PLANTILLA
     return (
-      <div className="min-h-svh bg-[#F6F8FC]">
+      <div className="min-h-svh" style={{ background: paleta.fondoPagina }}>
         <div className="mx-auto w-full max-w-2xl">
           <DisenoEscalado html={disenoHtml} canvas={disenoCanvas} />
         </div>
-        <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8]">
-          <p className="text-xs">
-            Menú digital creado con <span className="font-bold text-white">Karta Kamay</span>
+        <div className="px-6 py-8 text-center" style={{ background: paleta.footer }}>
+          <p className="text-xs" style={{ color: paleta.headerSub }}>
+            Menú digital creado con{' '}
+            <span className="font-bold" style={{ color: paleta.headerText }}>Karta Kamay</span>
           </p>
         </div>
       </div>
     )
   }
 
-  const tema = { ...DEFAULT_TEMA, ...data.contenido?.tema }
+  const paleta = TEMAS_PLANTILLA[data.restaurante.plantilla] ?? DEFAULT_TEMA_PLANTILLA
+  const menuTema = { mostrar_precios: true, mostrar_fotos: true, ...data.contenido?.tema }
   const categorias = [...new Set(data.productos.map((p) => p.categoria ?? 'Otros'))]
   const productosVisibles = data.productos.filter((p) => (p.categoria ?? 'Otros') === active)
   const iniciales = data.restaurante.nombre
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
+    .split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  const horarioTexto = formatHorario(data.restaurante.horario)
 
   return (
-    <div className="min-h-svh bg-[#F6F8FC]">
-      <div className="bg-navy px-6 py-10 text-white sm:px-14">
+    <div className="min-h-svh" style={{ background: paleta.fondoPagina }}>
+
+      {/* Header */}
+      <div className="px-6 py-10 sm:px-14" style={{ background: paleta.headerBg }}>
         <div className="mx-auto flex max-w-4xl items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#C97B5F] text-xl font-extrabold">
-            {iniciales}
+
+          {/* Logo o iniciales */}
+          <div
+            className="h-16 w-16 shrink-0 rounded-2xl overflow-hidden flex items-center justify-center text-xl font-extrabold text-white"
+            style={{ background: paleta.logoBg }}
+          >
+            {data.restaurante.url_logo
+              ? <img src={data.restaurante.url_logo} alt="Logo" className="h-full w-full object-cover" />
+              : <span>{iniciales}</span>
+            }
           </div>
-          <div>
-            <h1 className="text-2xl font-extrabold sm:text-[26px]">{data.restaurante.nombre}</h1>
+
+          <div className="min-w-0">
+            <h1 className="text-2xl font-extrabold sm:text-[26px] truncate" style={{ color: paleta.headerText }}>
+              {data.restaurante.nombre}
+            </h1>
             {data.restaurante.slogan && (
-              <p className="mt-1 text-[13.5px] text-[#A9B4C8]">{data.restaurante.slogan}</p>
+              <p className="mt-0.5 text-[13.5px]" style={{ color: paleta.headerSub }}>
+                {data.restaurante.slogan}
+              </p>
+            )}
+            {horarioTexto && (
+              <p className="mt-1 text-[12px] flex items-center gap-1" style={{ color: paleta.headerSub }}>
+                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                {horarioTexto}
+              </p>
             )}
           </div>
         </div>
       </div>
 
+      {/* Categorías */}
       {categorias.length > 1 && (
-        <div className="sticky top-0 z-10 flex gap-2.5 overflow-x-auto border-b border-[#E2E8F0] bg-white px-6 py-4 sm:px-14">
+        <div
+          className="sticky top-0 z-10 flex gap-2.5 overflow-x-auto border-b px-6 py-4 sm:px-14"
+          style={{ background: paleta.categoriasBg, borderColor: paleta.cardBorder }}
+        >
           {categorias.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setActive(cat)}
-              className="whitespace-nowrap rounded-full px-4.5 py-2 text-[13.5px] font-bold"
+              className="whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-bold transition-colors"
               style={
                 active === cat
-                  ? { backgroundColor: tema.color_acento, color: '#fff' }
-                  : { color: '#4A5568' }
+                  ? { background: paleta.acento, color: '#fff' }
+                  : { color: paleta.textoPrincipal, background: 'transparent' }
               }
             >
               {cat}
@@ -186,27 +269,35 @@ function PublicMenu() {
         </div>
       )}
 
+      {/* Platos */}
       <div className="mx-auto max-w-4xl px-6 py-10 sm:px-14">
-        <p
-          className="mb-4.5 text-xs font-bold uppercase tracking-wide"
-          style={{ color: tema.color_acento }}
-        >
+        <p className="mb-4 text-xs font-bold uppercase tracking-wide" style={{ color: paleta.acento }}>
           {active}
         </p>
         {productosVisibles.length === 0 ? (
-          <p className="text-sm text-[#8A94A6]">Todavía no hay platos en esta categoría.</p>
+          <p className="text-sm" style={{ color: paleta.textoSub }}>
+            Todavía no hay platos en esta categoría.
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {productosVisibles.map((dish) => (
-              <DishCard key={dish.id_producto} dish={dish} tema={tema} />
+              <DishCard
+                key={dish.id_producto}
+                dish={dish}
+                paleta={paleta}
+                mostrarFotos={menuTema.mostrar_fotos}
+                mostrarPrecios={menuTema.mostrar_precios}
+              />
             ))}
           </div>
         )}
       </div>
 
-      <div className="bg-navy px-6 py-8 text-center text-[#A9B4C8] sm:px-14">
-        <p className="text-xs">
-          Menú digital creado con <span className="font-bold text-white">Karta Kamay</span>
+      {/* Footer */}
+      <div className="px-6 py-8 text-center sm:px-14" style={{ background: paleta.footer }}>
+        <p className="text-xs" style={{ color: paleta.headerSub }}>
+          Menú digital creado con{' '}
+          <span className="font-bold" style={{ color: paleta.headerText }}>Karta Kamay</span>
         </p>
       </div>
     </div>

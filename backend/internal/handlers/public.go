@@ -18,20 +18,28 @@ func NewPublicHandler(db *pgxpool.Pool) *PublicHandler {
 	return &PublicHandler{DB: db}
 }
 
-// MenuPorSubdominio es lo que resuelve <subdominio>.kartakamay.app: el
-// restaurante, su menú principal publicado y los productos que referencia.
+// MenuPorSubdominio muestra el menú del primer local activo (ordenado por id_local).
 func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
-	subdominio := c.Param("subdominio")
+	h.resolverMenu(c, c.Param("subdominio"), "")
+}
+
+// MenuPorLocalSlug muestra el menú de un local específico por su slug.
+func (h *PublicHandler) MenuPorLocalSlug(c *gin.Context) {
+	h.resolverMenu(c, c.Param("subdominio"), c.Param("local_slug"))
+}
+
+func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug string) {
 	ctx := c.Request.Context()
 
+	// 1. Restaurante por subdominio
 	var idRestaurante int
-	var nombre, zonaHoraria string
+	var nombre, zonaHoraria, plantilla string
 	var slogan, urlLogo *string
 	err := h.DB.QueryRow(ctx,
-		`SELECT id_restaurante, nombre, slogan, url_logo, zona_horaria
+		`SELECT id_restaurante, nombre, slogan, url_logo, zona_horaria, plantilla
 		 FROM restaurante WHERE subdominio = $1 AND activo`,
 		subdominio,
-	).Scan(&idRestaurante, &nombre, &slogan, &urlLogo, &zonaHoraria)
+	).Scan(&idRestaurante, &nombre, &slogan, &urlLogo, &zonaHoraria, &plantilla)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "restaurante no encontrado"})
 		return
@@ -41,17 +49,32 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 		return
 	}
 
+	// 2. Menú publicado del local (por slug o el primero activo)
 	var idMenu int
 	var contenido []byte
-	err = h.DB.QueryRow(ctx,
-		`SELECT m.id_menu, mv.contenido
-		 FROM menu m
-		 JOIN menu_version mv ON mv.id_menu = m.id_menu AND mv.estado = 'publicada'
-		 WHERE m.id_restaurante = $1 AND m.es_principal AND m.activo`,
-		idRestaurante,
-	).Scan(&idMenu, &contenido)
+	var horario *json.RawMessage
+
+	if localSlug == "" {
+		err = h.DB.QueryRow(ctx,
+			`SELECT l.id_menu, l.horario, mv.contenido
+			 FROM local l
+			 JOIN menu_version mv ON mv.id_menu = l.id_menu AND mv.estado = 'publicada'
+			 WHERE l.id_restaurante = $1 AND l.activo
+			 ORDER BY l.id_local LIMIT 1`,
+			idRestaurante,
+		).Scan(&idMenu, &horario, &contenido)
+	} else {
+		err = h.DB.QueryRow(ctx,
+			`SELECT l.id_menu, l.horario, mv.contenido
+			 FROM local l
+			 JOIN menu_version mv ON mv.id_menu = l.id_menu AND mv.estado = 'publicada'
+			 WHERE l.id_restaurante = $1 AND l.slug = $2 AND l.activo`,
+			idRestaurante, localSlug,
+		).Scan(&idMenu, &horario, &contenido)
+	}
+
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "este restaurante todavía no publicó su menú"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "este local todavía no publicó su menú"})
 		return
 	}
 	if err != nil {
@@ -59,6 +82,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 		return
 	}
 
+	// 3. Registrar visita
 	origen := c.DefaultQuery("origen", "link")
 	if origen != "qr" {
 		origen = "link"
@@ -68,6 +92,7 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 		idRestaurante, origen,
 	)
 
+	// 4. Productos (nivel restaurante — compartidos entre locales)
 	type productoPublico struct {
 		IDProducto  int      `json:"id_producto"`
 		IDCategoria *int     `json:"id_categoria"`
@@ -117,6 +142,8 @@ func (h *PublicHandler) MenuPorSubdominio(c *gin.Context) {
 			"slogan":         slogan,
 			"url_logo":       urlLogo,
 			"zona_horaria":   zonaHoraria,
+			"plantilla":      plantilla,
+			"horario":        horario,
 		},
 		"id_menu":   idMenu,
 		"contenido": json.RawMessage(contenido),

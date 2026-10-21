@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,7 +31,7 @@ func (h *RestauranteHandler) List(c *gin.Context) {
 	rows, err := h.DB.Query(
 		c.Request.Context(),
 		`SELECT id_restaurante, id_usuario, id_tipo_restaurante, nombre, subdominio, slogan,
-		        url_logo, telefono, zona_horaria, activo, fecha_registro
+		        url_logo, telefono, zona_horaria, plantilla, activo, fecha_registro
 		 FROM restaurante WHERE id_usuario = $1 AND activo ORDER BY id_restaurante`,
 		currentUserID(c),
 	)
@@ -47,7 +45,7 @@ func (h *RestauranteHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var r models.Restaurante
 		if err := rows.Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
-			&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro); err != nil {
+			&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Plantilla, &r.Activo, &r.FechaRegistro); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -70,10 +68,10 @@ func (h *RestauranteHandler) Create(c *gin.Context) {
 		`INSERT INTO restaurante (id_usuario, nombre, subdominio, slogan, telefono)
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING id_restaurante, id_usuario, id_tipo_restaurante, nombre, subdominio, slogan,
-		           url_logo, telefono, zona_horaria, activo, fecha_registro`,
+		           url_logo, telefono, zona_horaria, plantilla, activo, fecha_registro`,
 		currentUserID(c), req.Nombre, req.Subdominio, req.Slogan, req.Telefono,
 	).Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
-		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro)
+		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Plantilla, &r.Activo, &r.FechaRegistro)
 	if err != nil {
 		if isUniqueViolation(err) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ese subdominio ya está en uso"})
@@ -92,11 +90,11 @@ func (h *RestauranteHandler) Get(c *gin.Context) {
 	err := h.DB.QueryRow(
 		c.Request.Context(),
 		`SELECT id_restaurante, id_usuario, id_tipo_restaurante, nombre, subdominio, slogan,
-		        url_logo, telefono, zona_horaria, activo, fecha_registro
+		        url_logo, telefono, zona_horaria, plantilla, activo, fecha_registro
 		 FROM restaurante WHERE id_restaurante = $1`,
 		currentRestauranteID(c),
 	).Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
-		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro)
+		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Plantilla, &r.Activo, &r.FechaRegistro)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "restaurante no encontrado"})
 		return
@@ -106,9 +104,11 @@ func (h *RestauranteHandler) Get(c *gin.Context) {
 }
 
 type actualizarRestauranteRequest struct {
-	Nombre   string  `json:"nombre" binding:"required"`
-	Slogan   *string `json:"slogan"`
-	Telefono *string `json:"telefono"`
+	Nombre     string  `json:"nombre" binding:"required"`
+	Subdominio *string `json:"subdominio"`
+	Slogan     *string `json:"slogan"`
+	Telefono   *string `json:"telefono"`
+	Plantilla  *string `json:"plantilla"`
 }
 
 func (h *RestauranteHandler) Update(c *gin.Context) {
@@ -118,14 +118,35 @@ func (h *RestauranteHandler) Update(c *gin.Context) {
 		return
 	}
 
-	_, err := h.DB.Exec(
-		c.Request.Context(),
-		"UPDATE restaurante SET nombre = $1, slogan = $2, telefono = $3 WHERE id_restaurante = $4",
-		req.Nombre, req.Slogan, req.Telefono, currentRestauranteID(c),
-	)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	ctx := c.Request.Context()
+
+	plantilla := "costero"
+	if req.Plantilla != nil && *req.Plantilla != "" {
+		plantilla = *req.Plantilla
+	}
+
+	if req.Subdominio != nil && *req.Subdominio != "" {
+		_, err := h.DB.Exec(ctx,
+			"UPDATE restaurante SET nombre = $1, subdominio = $2, slogan = $3, telefono = $4, plantilla = $5 WHERE id_restaurante = $6",
+			req.Nombre, *req.Subdominio, req.Slogan, req.Telefono, plantilla, currentRestauranteID(c),
+		)
+		if err != nil {
+			if isUniqueViolation(err) {
+				c.JSON(http.StatusConflict, gin.H{"error": "ese subdominio ya está en uso"})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		_, err := h.DB.Exec(ctx,
+			"UPDATE restaurante SET nombre = $1, slogan = $2, telefono = $3, plantilla = $4 WHERE id_restaurante = $5",
+			req.Nombre, req.Slogan, req.Telefono, plantilla, currentRestauranteID(c),
+		)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	h.Get(c)
@@ -167,11 +188,8 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		idRestaurante,
 	).Scan(&plan, &maxMenu, &maxLocal)
 
-	// El menú principal siempre existe una vez creado el primer menú (ver
-	// MenuHandler.Create); menuPublicado indica si alguna vez se publicó,
-	// para que el Dashboard pueda ofrecer "Publicar" o "Publicar cambios".
-	// menuEsDiseno: lo publicado es un diseño del Editor (contenido.diseno_html)
-	// en vez de la lista de platos; el Dashboard ofrece volver a la lista.
+	// Estado del menú: por defecto usa el menú principal del restaurante.
+	// Si se pasa ?id_local=N, usa el menú del local específico.
 	var idMenuPrincipal *int
 	var menuPublicado, menuEsDiseno bool
 	_ = h.DB.QueryRow(ctx,
@@ -182,6 +200,26 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		 FROM menu m WHERE m.id_restaurante = $1 AND m.es_principal AND m.activo`,
 		idRestaurante,
 	).Scan(&idMenuPrincipal, &menuPublicado, &menuEsDiseno)
+
+	if idLocalStr := c.Query("id_local"); idLocalStr != "" {
+		if idLocal, err := strconv.Atoi(idLocalStr); err == nil && idLocal > 0 {
+			var idMenuLocal *int
+			var localPublicado, localEsDiseno bool
+			queryErr := h.DB.QueryRow(ctx,
+				`SELECT l.id_menu,
+				        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = l.id_menu AND mv.estado = 'publicada'),
+				        EXISTS(SELECT 1 FROM menu_version mv WHERE mv.id_menu = l.id_menu AND mv.estado = 'publicada'
+				               AND mv.contenido ? 'diseno_html')
+				 FROM local l WHERE l.id_local = $1 AND l.id_restaurante = $2 AND l.activo`,
+				idLocal, idRestaurante,
+			).Scan(&idMenuLocal, &localPublicado, &localEsDiseno)
+			if queryErr == nil {
+				idMenuPrincipal = idMenuLocal
+				menuPublicado = localPublicado
+				menuEsDiseno = localEsDiseno
+			}
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"visitas_30d":        visitas30d,
@@ -197,75 +235,20 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 	})
 }
 
-// SubirLogo reemplaza el logo del restaurante: sube la imagen (misma
-// validación que ProductoHandler.Upload/EditorHandler.Upload) y de una la
-// deja guardada en restaurante.url_logo, sin un paso aparte de "Guardar".
+// SubirLogo sube el logo del restaurante a Cloudinary y guarda la URL en la BD.
 func (h *RestauranteHandler) SubirLogo(c *gin.Context) {
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "falta el archivo (campo 'file')"})
-		return
-	}
-	if fileHeader.Size > maxUploadBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 10MB"})
-		return
-	}
-
-	file, err := fileHeader.Open()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
-		return
-	}
-	defer file.Close()
-
-	head := make([]byte, 512)
-	n, _ := io.ReadFull(file, head)
-	contentType := http.DetectContentType(head[:n])
-
-	ext, ok := extensionesPermitidas[contentType]
+	logoURL, ok := subirImagen(c, "logos")
 	if !ok {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "formato no soportado (usa png, jpg, webp o gif)"})
 		return
 	}
-
-	name, err := randomFilename()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo generar el archivo"})
-		return
-	}
-	name += ext
-
-	dir := filepath.Join(h.UploadDir, "restaurantes")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo preparar el almacenamiento"})
-		return
-	}
-
-	dest, err := os.Create(filepath.Join(dir, name))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	defer dest.Close()
-
-	if _, err := dest.Write(head[:n]); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	if _, err := io.Copy(dest, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-
-	url := "/uploads/restaurantes/" + name
 
 	var r models.Restaurante
-	err = h.DB.QueryRow(
+	err := h.DB.QueryRow(
 		c.Request.Context(),
 		`UPDATE restaurante SET url_logo = $1 WHERE id_restaurante = $2
 		 RETURNING id_restaurante, id_usuario, id_tipo_restaurante, nombre, subdominio, slogan,
 		           url_logo, telefono, zona_horaria, activo, fecha_registro`,
-		url, currentRestauranteID(c),
+		logoURL, currentRestauranteID(c),
 	).Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
 		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro)
 	if err != nil {

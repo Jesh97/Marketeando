@@ -23,6 +23,7 @@ function App() {
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/menu/:slug" element={<PublicMenu />} />
+      <Route path="/menu/:slug/:local_slug" element={<PublicMenu />} />
       <Route path="/status" element={<Home />} />
 
       <Route element={<ProtectedRoute />}>

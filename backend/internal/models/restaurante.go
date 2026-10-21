@@ -12,6 +12,7 @@ type Restaurante struct {
 	URLLogo           *string   `json:"url_logo"`
 	Telefono          *string   `json:"telefono"`
 	ZonaHoraria       string    `json:"zona_horaria"`
+	Plantilla         string    `json:"plantilla"`
 	Activo            bool      `json:"activo"`
 	FechaRegistro     time.Time `json:"fecha_registro"`
 }

@@ -6,13 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"marketeando/backend/internal/cloudinaryutil"
 	"marketeando/backend/internal/models"
 )
 
@@ -109,9 +108,8 @@ func (h *QRPersonalizacionHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, q)
 }
 
-// SubirLogo sube el logo del cliente para el QR (misma validación de
-// archivo que RestauranteHandler.SubirLogo), guardado aparte en
-// uploads/qr/. Protegido por RequirePlan(db, "Enterprise") en la ruta.
+// SubirLogo sube el logo del QR a Cloudinary. Acepta PNG, JPG, SVG y WebP.
+// Protegido por RequirePlan(db, "Enterprise") en la ruta.
 func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
@@ -120,7 +118,7 @@ func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 	}
 	const maxLogoBytes = 2 << 20 // 2 MB
 	if fileHeader.Size > maxLogoBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "el logo supera los 2MB"})
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "el logo supera los 2 MB"})
 		return
 	}
 
@@ -133,49 +131,21 @@ func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 
 	head := make([]byte, 512)
 	n, _ := io.ReadFull(file, head)
+	contentType := http.DetectContentType(head[:n])
 
-	ext, ok := qrLogoExtensionesPermitidas[http.DetectContentType(head[:n])]
-	if !ok && looksLikeSVG(head[:n]) {
-		ext, ok = ".svg", true
-	}
-	if !ok && looksLikeWebP(head[:n]) {
-		ext, ok = ".webp", true
-	}
-	if !ok {
+	_, allowed := qrLogoExtensionesPermitidas[contentType]
+	if !allowed && !looksLikeSVG(head[:n]) && !looksLikeWebP(head[:n]) {
 		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "formato no soportado (usa png, jpg, svg o webp)"})
 		return
 	}
 
-	name, err := randomFilename()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo generar el archivo"})
-		return
-	}
-	name += ext
-
-	dir := filepath.Join(h.UploadDir, "qr")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo preparar el almacenamiento"})
+	reader := io.MultiReader(bytes.NewReader(head[:n]), file)
+	logoURL, uploadErr := cloudinaryutil.Upload(c.Request.Context(), reader, "qr-logos")
+	if uploadErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo subir el logo: " + uploadErr.Error()})
 		return
 	}
 
-	dest, err := os.Create(filepath.Join(dir, name))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	defer dest.Close()
-
-	if _, err := dest.Write(head[:n]); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-	if _, err := io.Copy(dest, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo guardar el archivo"})
-		return
-	}
-
-	url := "/uploads/qr/" + name
 	idRestaurante := currentRestauranteID(c)
 
 	var q models.QRPersonalizacion
@@ -186,7 +156,7 @@ func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 		 VALUES ($1, $2)
 		 ON CONFLICT (id_restaurante) DO UPDATE SET logo_url = EXCLUDED.logo_url
 		 RETURNING modo, colores, sensibilidad, ajustes, logo_url, fecha_actualizacion`,
-		idRestaurante, url,
+		idRestaurante, logoURL,
 	).Scan(&q.Modo, &q.Colores, &q.Sensibilidad, &q.Ajustes, &q.LogoURL, &q.FechaActualizacion)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

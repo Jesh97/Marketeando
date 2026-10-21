@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import logoMark from '../assets/logo-mark.png'
+import { useRestaurante } from '../context/RestauranteContext'
+import { useLocal } from '../context/LocalContext'
+import { getPaleta } from '../utils/paletas'
 
 function DashboardIcon() {
   return (
@@ -64,6 +68,38 @@ function LogoutIcon() {
   )
 }
 
+function ChevronIcon({ open }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      className="h-3.5 w-3.5 shrink-0 transition-transform"
+      style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3.5 w-3.5 shrink-0">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function StoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-[14px] w-[14px] shrink-0">
+      <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
+      <path d="M9 21V12h6v9" />
+    </svg>
+  )
+}
+
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/products', label: 'Gestión de Productos', Icon: ProductsIcon },
@@ -74,13 +110,66 @@ const navItems = [
 
 function Sidebar() {
   const location = useLocation()
+  const { restaurante } = useRestaurante()
+  const { locales, localActivo, cambiarLocal } = useLocal()
+  const paleta = getPaleta(restaurante?.plantilla)
+  const [openSwitch, setOpenSwitch] = useState(false)
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-navy p-4">
+    <aside
+      className="flex w-64 shrink-0 flex-col p-4"
+      style={{ background: paleta.darkBg, transition: 'background-color 0.25s ease' }}
+    >
       <div className="flex items-center gap-2.5 px-2.5 pb-7 pt-2">
         <img src={logoMark} alt="" className="h-[26px] w-[26px] shrink-0" />
-        <span className="text-base font-extrabold text-white">Karta Kamay</span>
+        <span className="text-base font-extrabold" style={{ color: paleta.darkText }}>Karta Kamay</span>
       </div>
+
+      {/* Branch switcher — only visible when there are multiple locals */}
+      {locales.length > 1 && (
+        <div className="relative mb-3">
+          <button
+            type="button"
+            onClick={() => setOpenSwitch((v) => !v)}
+            className="flex w-full items-center gap-2.5 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold"
+            style={{ background: 'rgba(255,255,255,0.1)', color: paleta.darkText }}
+          >
+            <StoreIcon />
+            <span className="flex-1 truncate text-left">{localActivo?.nombre ?? 'Sucursal'}</span>
+            <ChevronIcon open={openSwitch} />
+          </button>
+
+          {openSwitch && (
+            <div
+              className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-[10px] shadow-xl"
+              style={{ background: paleta.darkBg, border: '1px solid rgba(255,255,255,0.15)' }}
+            >
+              {locales.map((l) => {
+                const active = l.id_local === localActivo?.id_local
+                return (
+                  <button
+                    key={l.id_local}
+                    type="button"
+                    onClick={() => {
+                      cambiarLocal(l.id_local)
+                      setOpenSwitch(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3.5 py-2.5 text-sm font-semibold"
+                    style={
+                      active
+                        ? { background: paleta.acento, color: '#fff' }
+                        : { color: paleta.darkSub }
+                    }
+                  >
+                    <span className="truncate">{l.nombre}</span>
+                    {active && <CheckIcon />}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <nav className="flex flex-1 flex-col gap-1">
         {navItems.map(({ to, label, Icon }) => {
@@ -90,9 +179,12 @@ function Sidebar() {
             <Link
               key={to}
               to={to}
-              className={`flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold ${
-                active ? 'bg-orange text-white' : 'text-[#A9B4C8] hover:bg-white/5'
-              }`}
+              className="flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold transition-colors"
+              style={
+                active
+                  ? { background: paleta.acento, color: '#fff' }
+                  : { color: paleta.darkSub }
+              }
             >
               <Icon />
               {label}
@@ -101,17 +193,19 @@ function Sidebar() {
         })}
       </nav>
 
-      <div className="flex flex-col gap-1 border-t border-white/10 pt-3">
+      <div className="flex flex-col gap-1 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <a
           href="#"
-          className="flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-[#A9B4C8] hover:bg-white/5"
+          className="flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold"
+          style={{ color: paleta.darkSub }}
         >
           <HelpIcon />
           Ayuda
         </a>
         <Link
           to="/"
-          className="flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-[#A9B4C8] hover:bg-white/5"
+          className="flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold"
+          style={{ color: paleta.darkSub }}
         >
           <LogoutIcon />
           Salir

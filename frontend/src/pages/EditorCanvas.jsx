@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useRestaurante } from '../context/RestauranteContext'
+import { useLocal } from '../context/LocalContext'
 import { datosDelBloque, formatPrecio } from '../lib/disenoProductos'
 import { documentToHtml, estilosBloqueProducto } from '../lib/editorExport'
 import { cargarFuentesDelEditor } from '../lib/fuentes'
@@ -561,10 +562,18 @@ function AvisoDesborde({ onAjustar }) {
 
 function EditorCanvas() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isNew = id === 'new'
   const { restaurante } = useRestaurante()
+  const { localActivo } = useLocal()
   const idRestaurante = restaurante?.id_restaurante
+
+  // id_menu al que pertenece este documento: viene de la URL para docs nuevos
+  // y del backend para docs existentes. Se usa al guardar (primera vez) y al publicar.
+  const [idMenuDoc, setIdMenuDoc] = useState(
+    isNew ? (Number(searchParams.get('id_menu')) || null) : null,
+  )
 
   const [docId, setDocId] = useState(isNew ? null : Number(id))
   const [title, setTitle] = useState('Diseño sin título')
@@ -621,7 +630,7 @@ function EditorCanvas() {
   // Estado más reciente para callbacks estables (atajos de teclado,
   // autoguardado) que si no leerían valores viejos de su closure.
   const actualRef = useRef({})
-  actualRef.current = { title, canvas, elements, docId, productos, firma, hayCambios, selectedIds }
+  actualRef.current = { title, canvas, elements, docId, idMenuDoc, productos, firma, hayCambios, selectedIds }
 
   const mostrarAviso = useCallback((tipo, texto) => setAviso({ tipo, texto, id: Date.now() }), [])
 
@@ -778,6 +787,7 @@ function EditorCanvas() {
         cargadoIdRef.current = data.id
         setDocId(data.id)
         setTitle(data.title)
+        if (data.id_menu) setIdMenuDoc(data.id_menu)
         resetDocumento(elementosIniciales, canvasInicial)
         setFirmaGuardada(JSON.stringify({ title: data.title, canvas: canvasInicial, elements: elementosIniciales }))
         setLoading(false)
@@ -852,6 +862,7 @@ function EditorCanvas() {
       const doc = { canvas: actual.canvas, elements: conDatosActuales(actual.elements, actual.productos) }
       const { data } = await apiClient.post('/editor/save', {
         id: actual.docId,
+        id_menu: actual.docId ? undefined : actual.idMenuDoc, // solo en creación
         title: actual.title,
         data_json: doc,
         html_content: documentToHtml(doc),
@@ -919,6 +930,22 @@ function EditorCanvas() {
     }
     navigate('/editor')
   }
+
+  // Cuando el usuario cambia de local en el sidebar mientras está en el canvas:
+  // guarda inmediatamente y vuelve a la lista para que cargue los docs del nuevo local.
+  const localMenuRef = useRef(localActivo?.id_menu ?? null)
+  useEffect(() => {
+    const nuevoMenu = localActivo?.id_menu ?? null
+    if (nuevoMenu === localMenuRef.current) return
+    localMenuRef.current = nuevoMenu
+    if (loading || isNew) return  // aún cargando o doc nuevo sin guardar
+    const actual = actualRef.current
+    if (actual.hayCambios) {
+      guardar().catch(() => {}).finally(() => navigate('/editor'))
+    } else {
+      navigate('/editor')
+    }
+  }, [localActivo?.id_menu, loading, isNew, guardar, navigate])
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -1059,17 +1086,16 @@ function EditorCanvas() {
       mostrarAviso('error', 'Necesitas un restaurante activo para publicar un menú.')
       return
     }
+    // Usa el menú del local activo (o el que tiene asignado este documento)
+    const idMenu = localActivo?.id_menu ?? idMenuDoc
+    if (!idMenu) {
+      mostrarAviso('error', 'No hay un local activo al que publicar este diseño.')
+      return
+    }
     setPublishState('publishing')
     try {
       const savedId = await guardar()
-      const { data: menus } = await apiClient.get(`/restaurantes/${idRestaurante}/menus`)
-      const principal = menus.find((m) => m.es_principal)
-      if (!principal) {
-        mostrarAviso('error', 'Este restaurante todavía no tiene un menú principal.')
-        setPublishState('idle')
-        return
-      }
-      await apiClient.post(`/restaurantes/${idRestaurante}/menus/${principal.id_menu}/publicar-diseno`, {
+      await apiClient.post(`/restaurantes/${idRestaurante}/menus/${idMenu}/publicar-diseno`, {
         id_documento: savedId,
       })
       setPublishState('idle')

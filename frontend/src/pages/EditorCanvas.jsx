@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useRestaurante } from '../context/RestauranteContext'
 import { useLocal } from '../context/LocalContext'
-import { datosDelBloque, formatPrecio } from '../lib/disenoProductos'
+import { datosDelBloque, formatPrecio, textoVinculado } from '../lib/disenoProductos'
 import { documentToHtml, estilosBloqueProducto } from '../lib/editorExport'
 import { cargarFuentesDelEditor } from '../lib/fuentes'
 
@@ -253,11 +253,15 @@ function createProductBlockElement(elements, producto) {
   }
 }
 
+// Textos de plantilla vinculados a un plato (ver rellenarConPlatos).
+const CAMPOS_VINCULADOS = { nombre: 'el nombre', precio: 'el precio', descripcion: 'la descripción' }
+
 // Al guardar, la copia de respaldo de cada bloque se refresca con los datos
 // actuales (la miniatura en "Mis diseños" y el HTML exportado salen al día).
 function conDatosActuales(elements, productos) {
   if (!productos.length) return elements
   return elements.map((el) => {
+    if (el.type === 'text' && el.productoId) return { ...el, text: textoVinculado(el, productos) }
     if (el.type !== 'product') return el
     const p = productos.find((x) => x.id_producto === el.productoId)
     return p ? { ...el, snapshot: { nombre: p.nombre, precio: p.precio, descripcion: p.descripcion ?? '' } } : el
@@ -643,6 +647,13 @@ function EditorCanvas() {
   useEffect(() => {
     cargarFuentesDelEditor()
   }, [])
+
+  // Aviso que deja "Mis diseños" al crear desde una plantilla (cuántos
+  // platos se colocaron).
+  const avisoInicial = useLocation().state?.aviso
+  useEffect(() => {
+    if (avisoInicial) mostrarAviso('ok', avisoInicial)
+  }, [avisoInicial, mostrarAviso])
 
   const empujar = useCallback((cambio) => {
     setHistoryState((h) => {
@@ -1429,8 +1440,17 @@ function EditorCanvas() {
                       onStartEditText={() => setEditingTextId(el.id)}
                       onCommitText={(text, alturaNecesaria) => {
                         setEditingTextId(null)
+                        // Escribir a mano en un texto vinculado lo desvincula del plato.
+                        const desvincular =
+                          el.productoId && text !== textoVinculado(el, productos)
+                            ? { productoId: undefined, productoCampo: undefined }
+                            : {}
                         // El cuadro crece solo si el texto nuevo no entra.
-                        updateElement(el.id, alturaNecesaria ? { text, height: alturaNecesaria } : { text })
+                        updateElement(el.id, {
+                          text,
+                          ...desvincular,
+                          ...(alturaNecesaria && { height: alturaNecesaria }),
+                        })
                       }}
                     />
                   ))}
@@ -1986,6 +2006,24 @@ function EditorCanvas() {
           {selectedIds.size === 1 && selected?.type === 'text' && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-navy">Texto</h3>
+              {selected.productoId && (
+                <div className="rounded-[9px] bg-[#EEF3FF] px-3 py-2 text-xs leading-relaxed text-navy">
+                  <p>
+                    Muestra {CAMPOS_VINCULADOS[selected.productoCampo] ?? 'un dato'} de{' '}
+                    <span className="font-semibold">
+                      {productos.find((p) => p.id_producto === selected.productoId)?.nombre ?? 'un plato eliminado'}
+                    </span>{' '}
+                    y se actualiza solo desde Gestión de Productos.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => updateElement(selected.id, { productoId: undefined, productoCampo: undefined })}
+                    className="mt-1 font-semibold text-orange-dark underline"
+                  >
+                    Desvincular y escribir a mano
+                  </button>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-semibold text-[#4A5568]">Fuente</label>
                 <select
@@ -2600,7 +2638,7 @@ function CanvasElement({
           onCommitText(nodo.textContent, necesaria > el.height ? necesaria : null)
         }}
       >
-        {el.text}
+        {el.productoId ? textoVinculado(el, productos) : el.text}
       </div>
     )
   }

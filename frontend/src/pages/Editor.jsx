@@ -6,6 +6,7 @@ import DisenoEscalado from '../components/DisenoEscalado'
 import { useRestaurante } from '../context/RestauranteContext'
 import { useLocal } from '../context/LocalContext'
 import { documentToHtml } from '../lib/editorExport'
+import { rellenarConPlatos } from '../lib/disenoProductos'
 import { TEMPLATES } from '../lib/editorTemplates'
 import { cargarFuentesDelEditor } from '../lib/fuentes'
 
@@ -13,6 +14,14 @@ import { cargarFuentesDelEditor } from '../lib/fuentes'
 // el plan Básico solo puede empezar en blanco. Se resuelve en el cliente
 // porque las plantillas no existen en la base de datos.
 const PLANES_CON_PLANTILLAS = new Set(['Pro', 'Enterprise'])
+
+function avisoPlatos(colocados, total) {
+  if (!total) return 'Aún no tienes platos registrados: la plantilla trae platos de ejemplo.'
+  if (colocados < total) {
+    return `Se colocaron ${colocados} de tus ${total} platos. Agrega el resto con el botón "Insertar plato".`
+  }
+  return `Se colocaron tus ${total} platos en la plantilla.`
+}
 
 function LockIcon() {
   return (
@@ -178,17 +187,21 @@ function Editor() {
   const plantillasDisponibles = PLANES_CON_PLANTILLAS.has(plan)
 
   async function handleUseTemplate(template) {
-    const { canvas, elements } = template.build()
     setCreating(true)
     setError('')
     try {
+      // Los platos de ejemplo de la plantilla se reemplazan por los de
+      // Gestión de Productos, vinculados para que se actualicen solos.
+      const { data: productos } = await apiClient.get(`/restaurantes/${idRestaurante}/productos`)
+      const { canvas, elements: base } = template.build()
+      const { elements, colocados, total } = rellenarConPlatos(base, productos)
       const { data } = await apiClient.post('/editor/save', {
         title: template.name,
         id_menu: idMenuActivo ?? null,
         data_json: { canvas, elements },
         html_content: documentToHtml({ canvas, elements }),
       })
-      navigate(`/editor/${data.id}`)
+      navigate(`/editor/${data.id}`, { state: { aviso: avisoPlatos(colocados, total) } })
     } catch (err) {
       setShowTemplates(false)
       setError(err.response?.data?.error ?? 'No se pudo crear el diseño desde la plantilla.')

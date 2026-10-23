@@ -99,7 +99,11 @@ function elementToHtml(el) {
       `letter-spacing:${el.letterSpacing ?? 0}px;line-height:${el.lineHeight ?? 1.2};` +
       shadow +
       `overflow:hidden;`
-    return `<div style="${style}">${escapeHtml(el.text)}</div>`
+    // Texto vinculado a un plato: el menú público le pone el dato actual.
+    const vinculo = el.productoId
+      ? ` data-kk-producto="${Number(el.productoId)}" data-kk-campo="${escapeHtml(el.productoCampo)}"`
+      : ''
+    return `<div${vinculo} style="${style}">${escapeHtml(el.text)}</div>`
   }
 
   if (el.type === 'image') {

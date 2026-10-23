@@ -12,6 +12,34 @@ function freshId() {
   return `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+// Marca los elementos de cada plato de ejemplo con su número de hueco
+// (`platoSlot`), para que rellenarConPlatos (lib/disenoProductos.js) ponga
+// ahí los platos reales. Los textos indican además qué dato muestran con
+// `platoCampo`: nombre, precio, descripcion o quitar (solo del ejemplo).
+// Igual con los huecos de foto (`fotoSlot`): el rectángulo con `fotoMarco`
+// recibe la foto del plato y el resto del hueco (📷, "Reemplazá…") se quita.
+function crearMarcadorDePlatos() {
+  let slot = -1
+  let activo = false
+  let fotoSlot = -1
+  let enFoto = false
+  return {
+    marcar: (el) => ({ ...el, ...(activo && { platoSlot: slot }), ...(enFoto && { fotoSlot }) }),
+    plato(dibujar) {
+      slot += 1
+      activo = true
+      dibujar()
+      activo = false
+    },
+    foto(dibujar) {
+      fotoSlot += 1
+      enFoto = true
+      dibujar()
+      enFoto = false
+    },
+  }
+}
+
 // Menú elegante: layout más elaborado (fondo oscuro, título script dorado,
 // secciones con línea divisoria, ítems con iconos de alérgenos), armado con
 // funciones ayudantes en vez de a mano para no desalinear las docenas de
@@ -25,11 +53,12 @@ function buildMenuElegante() {
 
   const elements = []
   let z = 0
+  const { marcar, plato, foto } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
-  function sticker(emoji, x, y, size, opacity) {
+  function sticker(emoji, x, y, size, opacity, extra) {
     push({
       type: 'text',
       text: emoji,
@@ -43,6 +72,7 @@ function buildMenuElegante() {
       height: size,
       align: 'center',
       opacity: opacity ?? 100,
+      ...extra,
     })
   }
   function section(y, title) {
@@ -62,51 +92,74 @@ function buildMenuElegante() {
     push({ type: 'rect', x: 260, y: y + 16, width: 480, height: 2, fill: GOLD, opacity: 55 })
   }
   function dish(y, name, desc, tags) {
-    push({
-      type: 'text',
-      text: name,
-      x: 60,
-      y,
-      width: 540,
-      height: 26,
-      fontFamily: '"Playfair Display", serif',
-      fontSize: 17,
-      fontWeight: '700',
-      color: TEXT_LIGHT,
-      align: 'left',
-    })
-    tags.forEach((emoji, i) => sticker(emoji, 620 + i * 34, y - 2, 30))
-    push({
-      type: 'text',
-      text: desc,
-      x: 60,
-      y: y + 28,
-      width: 670,
-      height: 40,
-      fontFamily: 'Inter, sans-serif',
-      fontSize: 13,
-      fontWeight: '400',
-      color: TEXT_MUTED,
-      align: 'left',
+    plato(() => {
+      push({
+        type: 'text',
+        text: name,
+        platoCampo: 'nombre',
+        x: 60,
+        y,
+        width: 540,
+        height: 26,
+        fontFamily: '"Playfair Display", serif',
+        fontSize: 17,
+        fontWeight: '700',
+        color: TEXT_LIGHT,
+        align: 'left',
+      })
+      // Los alérgenos son del plato de ejemplo: no aplican al plato real, y
+      // en su lugar va el precio (el ejemplo no lo muestra).
+      tags.forEach((emoji, i) => sticker(emoji, 620 + i * 34, y - 2, 30, 100, { platoCampo: 'quitar' }))
+      push({
+        type: 'text',
+        text: '',
+        platoCampo: 'precio',
+        soloConPlato: true,
+        x: 600,
+        y,
+        width: 140,
+        height: 26,
+        fontFamily: '"Playfair Display", serif',
+        fontSize: 17,
+        fontWeight: '700',
+        color: GOLD,
+        align: 'right',
+      })
+      push({
+        type: 'text',
+        text: desc,
+        platoCampo: 'descripcion',
+        x: 60,
+        y: y + 28,
+        width: 670,
+        height: 40,
+        fontFamily: 'Inter, sans-serif',
+        fontSize: 13,
+        fontWeight: '400',
+        color: TEXT_MUTED,
+        align: 'left',
+      })
     })
   }
 
   // Franja superior: acá el usuario reemplaza con sus propias fotos (con el
   // selector de platos del editor) — no hay imágenes de stock que insertar.
-  push({ type: 'rect', x: 0, y: 0, width: 800, height: 190, fill: PANEL })
-  sticker('📷', 350, 40, 100, 35)
-  push({
-    type: 'text',
-    text: 'Reemplazá esta franja con tus fotos',
-    x: 200,
-    y: 140,
-    width: 400,
-    height: 28,
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 13,
-    fontWeight: '400',
-    color: TEXT_MUTED,
-    align: 'center',
+  foto(() => {
+    push({ type: 'rect', x: 0, y: 0, width: 800, height: 190, fill: PANEL, fotoMarco: true })
+    sticker('📷', 350, 40, 100, 35)
+    push({
+      type: 'text',
+      text: 'Reemplazá esta franja con tus fotos',
+      x: 200,
+      y: 140,
+      width: 400,
+      height: 28,
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      fontWeight: '400',
+      color: TEXT_MUTED,
+      align: 'center',
+    })
   })
 
   // Título
@@ -266,9 +319,10 @@ function buildMenuNeon() {
 
   const elements = []
   let z = 0
+  const { marcar, plato, foto } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -341,20 +395,20 @@ function buildMenuNeon() {
     push({ type: 'rect', x, y: y + 38, width: w, height: 1, fill: accent, opacity: 35 })
   }
   function dishRow(x, y, w, name, badgeText, badgeColor, price) {
-    text(x, y, w, 24, name, { fontSize: 17, fontWeight: '700', color: '#F5F5F5' })
+    text(x, y, w, 24, name, { fontSize: 17, fontWeight: '700', color: '#F5F5F5', platoCampo: 'nombre' })
     push({ type: 'rect', x, y: y + 28, width: 70, height: 22, fill: badgeColor, borderRadius: 11 })
     text(x, y + 33, 70, 14, badgeText, { fontSize: 10, fontWeight: '700', color: '#08090D', align: 'center', letterSpacing: 1 })
-    text(x + w - 130, y + 26, 130, 26, price, { fontSize: 18, fontWeight: '700', color: badgeColor, align: 'right' })
+    text(x + w - 130, y + 26, 130, 26, price, { fontSize: 18, fontWeight: '700', color: badgeColor, align: 'right', platoCampo: 'precio' })
   }
   function desc(x, y, w, str) {
-    text(x, y, w, 36, str, { fontSize: 12, fontWeight: '400', color: TEXT_MUTED })
+    text(x, y, w, 36, str, { fontSize: 12, fontWeight: '400', color: TEXT_MUTED, platoCampo: 'descripcion' })
   }
   function heat(x, y, w, level, label, accent) {
-    text(x, y, w, 20, `${'🔥'.repeat(level)} ${label}`, { fontSize: 11, fontWeight: '700', color: accent })
+    text(x, y, w, 20, `${'🔥'.repeat(level)} ${label}`, { fontSize: 11, fontWeight: '700', color: accent, platoCampo: 'quitar' })
   }
   function priceRow(x, y, w, name, price, accent) {
-    text(x, y, w - 100, 22, name, { fontSize: 14, fontWeight: '600', color: '#F5F5F5' })
-    text(x + w - 100, y, 100, 22, price, { fontSize: 14, fontWeight: '700', color: accent, align: 'right' })
+    text(x, y, w - 100, 22, name, { fontSize: 14, fontWeight: '600', color: '#F5F5F5', platoCampo: 'nombre' })
+    text(x + w - 100, y, 100, 22, price, { fontSize: 14, fontWeight: '700', color: accent, align: 'right', platoCampo: 'precio' })
   }
 
   // Resplandores ambiente: blobs de color desenfocados, como los "blur-3xl"
@@ -412,12 +466,16 @@ function buildMenuNeon() {
   kanji(350, 190, '拉麺', CYAN)
   sectionTitle(80, 202, 300, 'RAMEN Y SOPAS', CYAN)
 
-  dishRow(80, 260, 420, 'Ramen shoyu tonkotsu', 'CASA', CYAN, 'S/ 24.00')
-  desc(80, 316, 420, 'Caldo de cerdo 18 horas, chashu, huevo marinado, cebollín')
+  plato(() => {
+    dishRow(80, 260, 420, 'Ramen shoyu tonkotsu', 'CASA', CYAN, 'S/ 24.00')
+    desc(80, 316, 420, 'Caldo de cerdo 18 horas, chashu, huevo marinado, cebollín')
+  })
 
-  dishRow(80, 370, 420, 'Ramen picante de miso', '🌶️🌶️', MAGENTA, 'S/ 26.00')
-  desc(80, 426, 420, 'Miso fermentado, aceite de chile habanero, cerdo desmenuzado')
-  heat(80, 464, 420, 4, 'NIVEL 4 · HABANERO', MAGENTA)
+  plato(() => {
+    dishRow(80, 370, 420, 'Ramen picante de miso', '🌶️🌶️', MAGENTA, 'S/ 26.00')
+    desc(80, 426, 420, 'Miso fermentado, aceite de chile habanero, cerdo desmenuzado')
+    heat(80, 464, 420, 4, 'NIVEL 4 · HABANERO', MAGENTA)
+  })
 
   push({ type: 'rect', x: 80, y: 780, width: 420, height: 50, fill: CARD_LIGHT, borderRadius: 8, strokeColor: CYAN, strokeWidth: 1 })
   text(96, 790, 260, 16, 'EXTRA DE FIDEOS (KAEDAMA)', { fontSize: 11, fontWeight: '700', color: CYAN, letterSpacing: 1 })
@@ -429,37 +487,49 @@ function buildMenuNeon() {
   kanji(870, 190, '熱炒', MAGENTA)
   sectionTitle(600, 202, 300, 'WOK Y CALLE', MAGENTA)
 
-  push({ type: 'rect', x: 600, y: 256, width: 420, height: 190, fill: '#1c1e24', borderRadius: 10 })
-  sticker('📷', 770, 310, 80, 30)
-  text(650, 400, 320, 22, 'Reemplazá con tu foto estrella', { fontSize: 11, color: TEXT_MUTED, align: 'center' })
-  push({ type: 'rect', x: 612, y: 266, width: 170, height: 26, fill: MAGENTA, borderRadius: 6, shadow: 10, shadowColor: GLOW[MAGENTA] })
-  text(612, 272, 170, 14, '★ PLATO ESTRELLA', { fontSize: 9, fontWeight: '700', color: '#FFFFFF', align: 'center', letterSpacing: 1 })
-  push({ type: 'rect', x: 930, y: 414, width: 80, height: 36, fill: '#08090D', borderRadius: 6, strokeColor: YELLOW, strokeWidth: 1 })
-  text(930, 422, 80, 20, 'S/ 28', { fontSize: 15, fontWeight: '700', color: YELLOW, align: 'center' })
+  plato(() => {
+    foto(() => {
+      push({ type: 'rect', x: 600, y: 256, width: 420, height: 190, fill: '#1c1e24', borderRadius: 10, fotoMarco: true })
+      sticker('📷', 770, 310, 80, 30)
+      text(650, 400, 320, 22, 'Reemplazá con tu foto estrella', { fontSize: 11, color: TEXT_MUTED, align: 'center' })
+    })
+    push({ type: 'rect', x: 612, y: 266, width: 170, height: 26, fill: MAGENTA, borderRadius: 6, shadow: 10, shadowColor: GLOW[MAGENTA] })
+    text(612, 272, 170, 14, '★ PLATO ESTRELLA', { fontSize: 9, fontWeight: '700', color: '#FFFFFF', align: 'center', letterSpacing: 1 })
+    push({ type: 'rect', x: 930, y: 414, width: 80, height: 36, fill: '#08090D', borderRadius: 6, strokeColor: YELLOW, strokeWidth: 1 })
+    text(930, 422, 80, 20, 'S/ 28', { fontSize: 15, fontWeight: '700', color: YELLOW, align: 'center', platoCampo: 'precio' })
 
-  text(600, 460, 420, 26, 'Fideos volcán con cerdo crocante', { fontSize: 17, fontWeight: '700', color: '#F5F5F5' })
-  desc(600, 488, 420, 'Fideos dorados en salsa de tamarindo picante, cerdo doble cocción, maní tostado')
-  heat(600, 526, 420, 3, 'NIVEL 3 · TAMARINDO PICANTE', MAGENTA)
+    text(600, 460, 420, 26, 'Fideos volcán con cerdo crocante', { fontSize: 17, fontWeight: '700', color: '#F5F5F5', platoCampo: 'nombre' })
+    desc(600, 488, 420, 'Fideos dorados en salsa de tamarindo picante, cerdo doble cocción, maní tostado')
+    heat(600, 526, 420, 3, 'NIVEL 3 · TAMARINDO PICANTE', MAGENTA)
+  })
 
-  dishRow(600, 570, 420, 'Pad thai de langostinos', 'NUEVO', YELLOW, 'S/ 22.00')
-  desc(600, 626, 420, 'Langostinos salteados, fideos de arroz, tamarindo, tofu, limón')
+  plato(() => {
+    dishRow(600, 570, 420, 'Pad thai de langostinos', 'NUEVO', YELLOW, 'S/ 22.00')
+    desc(600, 626, 420, 'Langostinos salteados, fideos de arroz, tamarindo, tofu, limón')
+  })
 
   // Columna 3 — Bocaditos y bebidas
   card(1090, 178, 480, 660, YELLOW)
   kanji(1390, 190, '点心', YELLOW)
   sectionTitle(1120, 202, 340, 'BOCADITOS Y BEBIDAS', YELLOW)
 
-  priceRow(1120, 262, 420, 'Bao de cerdo braseado', 'S/ 12.00', YELLOW)
-  desc(1120, 286, 420, 'Bollo al vapor, panceta braseada, mostaza encurtida')
-  priceRow(1120, 328, 420, 'Gyoza crocantes de pato', 'S/ 13.00', YELLOW)
-  desc(1120, 352, 420, 'Empanadillas doradas, pato ahumado, vinagre negro')
-  priceRow(1120, 394, 420, 'Karaage picante', 'S/ 11.00', YELLOW)
-  desc(1120, 418, 420, 'Pollo frito doble cocción, togarashi, mayonesa de ajo')
+  plato(() => {
+    priceRow(1120, 262, 420, 'Bao de cerdo braseado', 'S/ 12.00', YELLOW)
+    desc(1120, 286, 420, 'Bollo al vapor, panceta braseada, mostaza encurtida')
+  })
+  plato(() => {
+    priceRow(1120, 328, 420, 'Gyoza crocantes de pato', 'S/ 13.00', YELLOW)
+    desc(1120, 352, 420, 'Empanadillas doradas, pato ahumado, vinagre negro')
+  })
+  plato(() => {
+    priceRow(1120, 394, 420, 'Karaage picante', 'S/ 11.00', YELLOW)
+    desc(1120, 418, 420, 'Pollo frito doble cocción, togarashi, mayonesa de ajo')
+  })
 
   push({ type: 'rect', x: 1120, y: 466, width: 420, height: 1, fill: YELLOW, opacity: 20 })
   text(1120, 478, 300, 20, 'BEBIDAS Y BOBA', { fontSize: 13, fontWeight: '700', color: CYAN, letterSpacing: 1 })
-  priceRow(1120, 506, 420, 'Té de leche con boba de panela', 'S/ 9.00', CYAN)
-  priceRow(1120, 536, 420, 'Limonada thai con menta', 'S/ 8.00', CYAN)
+  plato(() => priceRow(1120, 506, 420, 'Té de leche con boba de panela', 'S/ 9.00', CYAN))
+  plato(() => priceRow(1120, 536, 420, 'Limonada thai con menta', 'S/ 8.00', CYAN))
 
   push({
     type: 'rect',
@@ -520,9 +590,10 @@ function buildTableroAhumado() {
 
   const elements = []
   let z = 0
+  const { marcar, plato, foto } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -564,11 +635,13 @@ function buildTableroAhumado() {
     push({ type: 'rect', x, y: y + 36, width: w, height: 1, fill: AMBER, opacity: 30 })
   }
   function priceRow(x, y, w, name, price) {
-    text(x, y, w - 100, 22, name, { fontSize: 15, fontWeight: '600', color: TEXT_LIGHT })
-    text(x + w - 100, y, 100, 22, price, { fontSize: 15, fontWeight: '700', color: AMBER, align: 'right' })
+    plato(() => {
+      text(x, y, w - 100, 22, name, { fontSize: 15, fontWeight: '600', color: TEXT_LIGHT, platoCampo: 'nombre' })
+      text(x + w - 100, y, 100, 22, price, { fontSize: 15, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+    })
   }
   function desc(x, y, w, str) {
-    text(x, y, w, 32, str, { fontSize: 12, color: TEXT_MUTED })
+    text(x, y, w, 32, str, { fontSize: 12, color: TEXT_MUTED, platoCampo: 'descripcion' })
   }
 
   // Encabezado
@@ -590,25 +663,29 @@ function buildTableroAhumado() {
 
   // Columna 1 — Hero con foto y combo
   card(50, 156, 620, 700)
-  push({ type: 'rect', x: 80, y: 180, width: 190, height: 30, fill: AMBER, borderRadius: 15 })
-  text(80, 187, 190, 16, '✓ CORTE DEL CHEF', { fontSize: 11, fontWeight: '700', color: '#121316', align: 'center', letterSpacing: 1 })
-  push({ type: 'rect', x: 282, y: 180, width: 170, height: 30, fill: CARD_HIGH, borderRadius: 15, strokeColor: AMBER, strokeWidth: 1 })
-  text(282, 187, 170, 16, '🔥 AHUMADO SUAVE', { fontSize: 10, fontWeight: '700', color: AMBER, align: 'center', letterSpacing: 1 })
-  text(470, 185, 130, 20, '940 KCAL', { fontSize: 11, fontWeight: '600', color: TEXT_MUTED, align: 'right' })
+  plato(() => {
+    push({ type: 'rect', x: 80, y: 180, width: 190, height: 30, fill: AMBER, borderRadius: 15 })
+    text(80, 187, 190, 16, '✓ CORTE DEL CHEF', { fontSize: 11, fontWeight: '700', color: '#121316', align: 'center', letterSpacing: 1 })
+    push({ type: 'rect', x: 282, y: 180, width: 170, height: 30, fill: CARD_HIGH, borderRadius: 15, strokeColor: AMBER, strokeWidth: 1 })
+    text(282, 187, 170, 16, '🔥 AHUMADO SUAVE', { fontSize: 10, fontWeight: '700', color: AMBER, align: 'center', letterSpacing: 1 })
+    text(470, 185, 130, 20, '940 KCAL', { fontSize: 11, fontWeight: '600', color: TEXT_MUTED, align: 'right', platoCampo: 'quitar' })
 
-  text(80, 224, 560, 60, 'LA DOBLE TRUFA', { fontFamily: 'Anton, sans-serif', fontSize: 42, fontWeight: '400', color: TEXT_LIGHT })
-  desc(80, 292, 560, 'Dos medallones prensados, mantequilla de tuétano trufada, cebolla caramelizada, gouda ahumado, pan brioche de carbón.')
+    text(80, 224, 560, 60, 'LA DOBLE TRUFA', { fontFamily: 'Anton, sans-serif', fontSize: 42, fontWeight: '400', color: TEXT_LIGHT, platoCampo: 'nombre' })
+    desc(80, 292, 560, 'Dos medallones prensados, mantequilla de tuétano trufada, cebolla caramelizada, gouda ahumado, pan brioche de carbón.')
 
-  push({ type: 'rect', x: 80, y: 380, width: 560, height: 260, fill: '#0D0E11', borderRadius: 10 })
-  sticker('📷', 310, 460, 100, 30)
-  text(180, 580, 360, 24, 'Reemplazá con tu foto del plato', { fontSize: 12, color: TEXT_MUTED, align: 'center' })
-  push({ type: 'rect', x: 100, y: 596, width: 170, height: 32, fill: '#0D0E11', opacity: 85, borderRadius: 8 })
-  text(100, 604, 170, 16, '⏱ Sellado: 120s', { fontSize: 10, fontWeight: '600', color: AMBER, align: 'center' })
+    foto(() => {
+      push({ type: 'rect', x: 80, y: 380, width: 560, height: 260, fill: '#0D0E11', borderRadius: 10, fotoMarco: true })
+      sticker('📷', 310, 460, 100, 30)
+      text(180, 580, 360, 24, 'Reemplazá con tu foto del plato', { fontSize: 12, color: TEXT_MUTED, align: 'center' })
+    })
+    push({ type: 'rect', x: 100, y: 596, width: 170, height: 32, fill: '#0D0E11', opacity: 85, borderRadius: 8, platoCampo: 'quitar' })
+    text(100, 604, 170, 16, '⏱ Sellado: 120s', { fontSize: 10, fontWeight: '600', color: AMBER, align: 'center', platoCampo: 'quitar' })
 
-  push({ type: 'rect', x: 80, y: 660, width: 560, height: 64, fill: CARD_HIGH, borderRadius: 10 })
-  text(100, 672, 250, 16, 'PEDIDO INDIVIDUAL', { fontSize: 10, fontWeight: '600', color: TEXT_MUTED, letterSpacing: 1 })
-  text(100, 690, 250, 26, 'Corte Señal', { fontSize: 20, fontWeight: '700', color: TEXT_LIGHT })
-  text(480, 678, 140, 40, 'S/ 32.00', { fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: '700', color: AMBER, align: 'right' })
+    push({ type: 'rect', x: 80, y: 660, width: 560, height: 64, fill: CARD_HIGH, borderRadius: 10 })
+    text(100, 672, 250, 16, 'PEDIDO INDIVIDUAL', { fontSize: 10, fontWeight: '600', color: TEXT_MUTED, letterSpacing: 1 })
+    text(100, 690, 250, 26, 'Corte Señal', { fontSize: 20, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'quitar' })
+    text(480, 678, 140, 40, 'S/ 32.00', { fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+  })
 
   push({ type: 'rect', x: 80, y: 736, width: 560, height: 88, fill: '#2A1C08', borderRadius: 10 })
   push({ type: 'ellipse', x: 100, y: 752, width: 48, height: 48, fill: AMBER })
@@ -621,23 +698,29 @@ function buildTableroAhumado() {
   card(690, 156, 430, 700)
   sectionTitle(720, 180, 370, 'HAMBURGUESAS DE HIERRO')
 
-  text(720, 236, 260, 22, 'Clásica OG', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 262, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
-  text(720, 266, 90, 12, 'FAVORITA', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
-  text(1000, 236, 90, 24, 'S/ 11.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 290, 370, 'Carne aplastada, queso americano, cebolla encurtida, salsa especial')
+  plato(() => {
+    text(720, 236, 260, 22, 'Clásica OG', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'nombre' })
+    push({ type: 'rect', x: 720, y: 262, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
+    text(720, 266, 90, 12, 'FAVORITA', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
+    text(1000, 236, 90, 24, 'S/ 11.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+    desc(720, 290, 370, 'Carne aplastada, queso americano, cebolla encurtida, salsa especial')
+  })
 
-  text(720, 340, 260, 22, 'Ahumada BBQ', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 366, width: 80, height: 20, fill: AMBER, borderRadius: 10 })
-  text(720, 370, 80, 12, 'NUEVO', { fontSize: 9, fontWeight: '700', color: '#121316', align: 'center' })
-  text(1000, 340, 90, 24, 'S/ 13.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 394, 370, 'Doble carne, tocino ahumado, aros de cebolla, salsa BBQ casera')
+  plato(() => {
+    text(720, 340, 260, 22, 'Ahumada BBQ', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'nombre' })
+    push({ type: 'rect', x: 720, y: 366, width: 80, height: 20, fill: AMBER, borderRadius: 10 })
+    text(720, 370, 80, 12, 'NUEVO', { fontSize: 9, fontWeight: '700', color: '#121316', align: 'center' })
+    text(1000, 340, 90, 24, 'S/ 13.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+    desc(720, 394, 370, 'Doble carne, tocino ahumado, aros de cebolla, salsa BBQ casera')
+  })
 
-  text(720, 444, 260, 22, 'Portobello vegetariana', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT })
-  push({ type: 'rect', x: 720, y: 470, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
-  text(720, 474, 90, 12, 'VEG 🌱', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
-  text(1000, 444, 90, 24, 'S/ 10.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right' })
-  desc(720, 498, 370, 'Portobello a la plancha, queso suizo, rúcula, alioli de ajo asado')
+  plato(() => {
+    text(720, 444, 260, 22, 'Portobello vegetariana', { fontSize: 16, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'nombre' })
+    push({ type: 'rect', x: 720, y: 470, width: 90, height: 20, fill: CARD_HIGH, borderRadius: 10 })
+    text(720, 474, 90, 12, 'VEG 🌱', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'center' })
+    text(1000, 444, 90, 24, 'S/ 10.00', { fontSize: 16, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+    desc(720, 498, 370, 'Portobello a la plancha, queso suizo, rúcula, alioli de ajo asado')
+  })
 
   push({ type: 'rect', x: 720, y: 780, width: 370, height: 50, fill: CARD_HIGH, borderRadius: 8 })
   text(736, 790, 220, 16, 'PAN SIN GLUTEN', { fontSize: 11, fontWeight: '700', color: AMBER, letterSpacing: 1 })
@@ -716,9 +799,10 @@ function buildPizzeriaLena() {
 
   const elements = []
   let z = 0
+  const { marcar, plato, foto } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -766,21 +850,28 @@ function buildPizzeriaLena() {
     text(x, y + 2, 60, 12, label, { fontSize: 8, fontWeight: '700', color: AMBER, align: 'center', letterSpacing: 1 })
   }
   function pizzaRow(x, y, w, badgeLabel, name, desc, priceMed, priceLg) {
-    badgeTag(x, y, badgeLabel)
-    text(x + 68, y - 2, w - 68 - 132, 22, name, { fontSize: 15, fontWeight: '700', color: TEXT_LIGHT })
-    text(x + w - 132, y - 2, 62, 22, priceMed, { fontSize: 14, fontWeight: '700', color: AMBER, align: 'center' })
-    text(x + w - 66, y - 2, 66, 22, priceLg, { fontSize: 14, fontWeight: '700', color: AMBER, align: 'center' })
-    text(x, y + 24, w, 18, desc, { fontSize: 11, color: TEXT_MUTED })
+    plato(() => {
+      badgeTag(x, y, badgeLabel)
+      text(x + 68, y - 2, w - 68 - 132, 22, name, { fontSize: 15, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'nombre' })
+      // Un plato real tiene un solo precio: va en la columna del tamaño chico.
+      text(x + w - 132, y - 2, 62, 22, priceMed, { fontSize: 14, fontWeight: '700', color: AMBER, align: 'center', platoCampo: 'precio' })
+      text(x + w - 66, y - 2, 66, 22, priceLg, { fontSize: 14, fontWeight: '700', color: AMBER, align: 'center', platoCampo: 'quitar' })
+      text(x, y + 24, w, 18, desc, { fontSize: 11, color: TEXT_MUTED, platoCampo: 'descripcion' })
+    })
   }
   function listRow(x, y, w, name, price, desc) {
-    text(x, y, w - 80, 20, name, { fontSize: 15, fontWeight: '700', color: TEXT_LIGHT })
-    text(x + w - 80, y, 80, 20, price, { fontSize: 15, fontWeight: '700', color: AMBER, align: 'right' })
-    text(x, y + 22, w, 16, desc, { fontSize: 10, color: TEXT_MUTED })
+    plato(() => {
+      text(x, y, w - 80, 20, name, { fontSize: 15, fontWeight: '700', color: TEXT_LIGHT, platoCampo: 'nombre' })
+      text(x + w - 80, y, 80, 20, price, { fontSize: 15, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+      text(x, y + 22, w, 16, desc, { fontSize: 10, color: TEXT_MUTED, platoCampo: 'descripcion' })
+    })
   }
   function drinkRow(x, y, w, name, subtitle, price) {
-    text(x, y, w - 90, 18, name, { fontSize: 13, fontWeight: '600', color: TEXT_LIGHT })
-    text(x + w - 90, y, 90, 18, price, { fontSize: 13, fontWeight: '700', color: AMBER, align: 'right' })
-    text(x, y + 18, w, 14, subtitle, { fontSize: 9, color: TEXT_MUTED })
+    plato(() => {
+      text(x, y, w - 90, 18, name, { fontSize: 13, fontWeight: '600', color: TEXT_LIGHT, platoCampo: 'nombre' })
+      text(x + w - 90, y, 90, 18, price, { fontSize: 13, fontWeight: '700', color: AMBER, align: 'right', platoCampo: 'precio' })
+      text(x, y + 18, w, 14, subtitle, { fontSize: 9, color: TEXT_MUTED, platoCampo: 'descripcion' })
+    })
   }
 
   // Encabezado
@@ -821,26 +912,31 @@ function buildPizzeriaLena() {
 
   // Columna 2 — Hero con foto, bento de ingredientes y maridaje
   card(530, 156, 560, 700)
-  push({ type: 'rect', x: 530, y: 156, width: 560, height: 280, fill: '#0D0E11', borderRadius: 12 })
-  sticker('📷', 760, 250, 100, 30)
-  text(630, 380, 360, 24, 'Reemplazá con tu foto del plato', { fontSize: 12, color: TEXT_MUTED, align: 'center' })
+  foto(() => {
+    push({ type: 'rect', x: 530, y: 156, width: 560, height: 280, fill: '#0D0E11', borderRadius: 12, fotoMarco: true })
+    sticker('📷', 760, 250, 100, 30)
+    text(630, 380, 360, 24, 'Reemplazá con tu foto del plato', { fontSize: 12, color: TEXT_MUTED, align: 'center' })
+  })
 
   push({ type: 'rect', x: 550, y: 176, width: 190, height: 32, fill: AMBER, borderRadius: 6 })
   text(550, 184, 190, 18, 'OBRA DEL CHEF', { fontSize: 12, fontWeight: '700', color: '#121316', align: 'center' })
 
-  push({ type: 'rect', x: 990, y: 176, width: 90, height: 60, fill: '#0D0E11', opacity: 90, borderRadius: 10 })
-  text(990, 184, 90, 12, 'DESDE', { fontSize: 8, color: TEXT_MUTED, align: 'center', letterSpacing: 1 })
-  text(990, 198, 90, 32, 'S/ 23', { fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: '700', color: AMBER, align: 'center' })
+  plato(() => {
+    push({ type: 'rect', x: 990, y: 176, width: 90, height: 60, fill: '#0D0E11', opacity: 90, borderRadius: 10 })
+    text(990, 184, 90, 12, 'DESDE', { fontSize: 8, color: TEXT_MUTED, align: 'center', letterSpacing: 1, platoCampo: 'quitar' })
+    text(990, 198, 90, 32, 'S/ 23', { fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: '700', color: AMBER, align: 'center', platoCampo: 'precio' })
 
-  push({ type: 'rect', x: 550, y: 406, width: 250, height: 28, fill: '#0D0E11', opacity: 80, borderRadius: 6 })
-  text(550, 412, 250, 16, '✓ Borde moteado · 90 seg', { fontSize: 10, fontWeight: '600', color: TEXT_LIGHT, align: 'center' })
+    push({ type: 'rect', x: 550, y: 406, width: 250, height: 28, fill: '#0D0E11', opacity: 80, borderRadius: 6, platoCampo: 'quitar' })
+    text(550, 412, 250, 16, '✓ Borde moteado · 90 seg', { fontSize: 10, fontWeight: '600', color: TEXT_LIGHT, align: 'center', platoCampo: 'quitar' })
 
-  eyebrow(560, 452, 350, 'SELECCIÓN ESPECIAL DEL MES')
-  text(930, 452, 140, 16, '1,120 KCAL · 14"', { fontSize: 10, color: TEXT_MUTED, align: 'right' })
-  text(560, 472, 520, 50, 'LA CAPRICCIOSA ESPECIAL', { fontFamily: 'Anton, sans-serif', fontSize: 30, fontWeight: '400', color: TEXT_LIGHT })
-  text(560, 526, 520, 54, 'Tomate San Marzano triturado, mozzarella de búfala, alcachofas a la parrilla, prosciutto de Parma curado 24 meses, champiñones silvestres y aceitunas kalamata.', {
-    fontSize: 12,
-    color: TEXT_MUTED,
+    eyebrow(560, 452, 350, 'SELECCIÓN ESPECIAL DEL MES')
+    text(930, 452, 140, 16, '1,120 KCAL · 14"', { fontSize: 10, color: TEXT_MUTED, align: 'right', platoCampo: 'quitar' })
+    text(560, 472, 520, 50, 'LA CAPRICCIOSA ESPECIAL', { fontFamily: 'Anton, sans-serif', fontSize: 30, fontWeight: '400', color: TEXT_LIGHT, platoCampo: 'nombre' })
+    text(560, 526, 520, 54, 'Tomate San Marzano triturado, mozzarella de búfala, alcachofas a la parrilla, prosciutto de Parma curado 24 meses, champiñones silvestres y aceitunas kalamata.', {
+      fontSize: 12,
+      color: TEXT_MUTED,
+      platoCampo: 'descripcion',
+    })
   })
 
   const bento = [
@@ -922,9 +1018,10 @@ function buildMenuCoreano() {
 
   const elements = []
   let z = 0
+  const { marcar, plato } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -959,13 +1056,17 @@ function buildMenuCoreano() {
     })
   }
   function listItem(x, y, w, name, price) {
-    text(x, y, w - 70, 20, name, { fontSize: 13, fontWeight: '600', color: SEPIA_TEXT })
-    text(x + w - 70, y, 70, 20, price, { fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: '700', color: SEPIA_TEXT, align: 'right' })
+    plato(() => {
+      text(x, y, w - 70, 20, name, { fontSize: 13, fontWeight: '600', color: SEPIA_TEXT, platoCampo: 'nombre' })
+      text(x + w - 70, y, 70, 20, price, { fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: '700', color: SEPIA_TEXT, align: 'right', platoCampo: 'precio' })
+    })
   }
   function plateItem(x, y, w, name, price, desc) {
-    text(x, y, w - 80, 22, name, { fontSize: 14, fontWeight: '700', color: NAVY })
-    text(x + w - 80, y, 80, 22, price, { fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: '700', color: SEPIA_TEXT, align: 'right' })
-    text(x, y + 22, w, 18, desc, { fontSize: 10, fontWeight: '400', color: SEPIA_SUB })
+    plato(() => {
+      text(x, y, w - 80, 22, name, { fontSize: 14, fontWeight: '700', color: NAVY, platoCampo: 'nombre' })
+      text(x + w - 80, y, 80, 22, price, { fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: '700', color: SEPIA_TEXT, align: 'right', platoCampo: 'precio' })
+      text(x, y + 22, w, 18, desc, { fontSize: 10, fontWeight: '400', color: SEPIA_SUB, platoCampo: 'descripcion' })
+    })
   }
   function drinkBox(x, title, rows) {
     push({ type: 'rect', x, y: 940, width: 250, height: 170, fill: PAPER_DARK, borderRadius: 6, strokeColor: 'rgba(61,92,111,0.35)', strokeWidth: 1 })
@@ -973,8 +1074,10 @@ function buildMenuCoreano() {
     push({ type: 'rect', x: x + 15, y: 972, width: 220, height: 1, fill: NAVY, opacity: 40 })
     rows.forEach(([name, price], i) => {
       const ry = 984 + i * 24
-      text(x + 15, ry, 155, 18, name, { fontSize: 10, fontWeight: '500', color: SEPIA_TEXT })
-      text(x + 165, ry, 70, 18, price, { fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: '700', color: SEPIA_TEXT, align: 'right' })
+      plato(() => {
+        text(x + 15, ry, 155, 18, name, { fontSize: 10, fontWeight: '500', color: SEPIA_TEXT, platoCampo: 'nombre' })
+        text(x + 165, ry, 70, 18, price, { fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: '700', color: SEPIA_TEXT, align: 'right', platoCampo: 'precio' })
+      })
     })
   }
 
@@ -1103,9 +1206,10 @@ function buildAsadorCriollo() {
 
   const elements = []
   let z = 0
+  const { marcar, plato } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -1140,9 +1244,18 @@ function buildAsadorCriollo() {
     })
   }
   function plateItem(x, y, w, label, price, desc) {
-    text(x, y, w - 64, 18, label, { fontSize: 10, fontWeight: '700', color: INK })
-    text(x + w - 64, y, 64, 18, price, { fontFamily: 'Anton, sans-serif', fontSize: 11, fontWeight: '400', color: RED, align: 'right' })
-    text(x, y + 20, w, 32, desc, { fontFamily: '"PT Serif", serif', fontSize: 8, color: MUTED })
+    plato(() => {
+      text(x, y, w - 64, 18, label, { fontSize: 10, fontWeight: '700', color: INK, platoCampo: 'nombre' })
+      text(x + w - 64, y, 64, 18, price, { fontFamily: 'Anton, sans-serif', fontSize: 11, fontWeight: '400', color: RED, align: 'right', platoCampo: 'precio' })
+      text(x, y + 20, w, 32, desc, { fontFamily: '"PT Serif", serif', fontSize: 8, color: MUTED, platoCampo: 'descripcion' })
+    })
+  }
+  function wineItem(y, name, price, desc) {
+    plato(() => {
+      text(70, y, 400, 18, name, { fontSize: 11, fontWeight: '700', color: INK, platoCampo: 'nombre' })
+      text(470, y, 80, 18, price, { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right', platoCampo: 'precio' })
+      if (desc) text(70, y + 20, 480, 16, desc, { fontFamily: '"PT Serif", serif', fontSize: 8, color: MUTED, platoCampo: 'descripcion' })
+    })
   }
   function column(x, w, title, subtitle, items, note) {
     push({ type: 'rect', x, y: 445, width: w, height: 520, fill: '#FAF6EE', strokeColor: INK, strokeWidth: 2 })
@@ -1236,17 +1349,11 @@ function buildAsadorCriollo() {
   text(420, 1103, 130, 14, 'DE NUESTRA BODEGA', { fontSize: 8, fontWeight: '700', color: RED, align: 'right', letterSpacing: 1 })
   push({ type: 'rect', x: 70, y: 1122, width: 480, height: 2, fill: INK })
 
-  text(70, 1136, 400, 18, 'VERMUT ROJO ARTESANAL (Vaso de campo)', { fontSize: 11, fontWeight: '700', color: INK })
-  text(470, 1136, 80, 18, '3,50 €', { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right' })
-  text(70, 1156, 480, 16, 'Con rodaja de naranja, aceituna rellena y toque de sifón.', { fontFamily: '"PT Serif", serif', fontSize: 8, color: MUTED })
-  text(70, 1178, 400, 18, 'MALBEC SAN TELMO (Copa bodegón)', { fontSize: 11, fontWeight: '700', color: INK })
-  text(470, 1178, 80, 18, '3,80 €', { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right' })
-  text(70, 1206, 400, 18, 'PINGÜINO DE LA CASA (750cc Malbec Roble)', { fontSize: 11, fontWeight: '700', color: INK })
-  text(470, 1206, 80, 18, '9,50 €', { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right' })
-  text(70, 1234, 400, 18, 'CERVEZA RUBIA TIRADA (Chopp 400cc)', { fontSize: 11, fontWeight: '700', color: INK })
-  text(470, 1234, 80, 18, '3,20 €', { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right' })
-  text(70, 1262, 400, 18, 'AGUA CON/SIN GAS O SIFÓN DE SODA', { fontSize: 11, fontWeight: '700', color: INK })
-  text(470, 1262, 80, 18, '2,20 €', { fontFamily: 'Anton, sans-serif', fontSize: 12, fontWeight: '400', color: RED, align: 'right' })
+  wineItem(1136, 'VERMUT ROJO ARTESANAL (Vaso de campo)', '3,50 €', 'Con rodaja de naranja, aceituna rellena y toque de sifón.')
+  wineItem(1178, 'MALBEC SAN TELMO (Copa bodegón)', '3,80 €')
+  wineItem(1206, 'PINGÜINO DE LA CASA (750cc Malbec Roble)', '9,50 €')
+  wineItem(1234, 'CERVEZA RUBIA TIRADA (Chopp 400cc)', '3,20 €')
+  wineItem(1262, 'AGUA CON/SIN GAS O SIFÓN DE SODA', '2,20 €')
 
   push({ type: 'rect', x: 590, y: 1085, width: 260, height: 260, fill: '#FAF6EE', strokeColor: INK, strokeWidth: 2 })
   text(610, 1097, 220, 20, 'DULCES DE BODEGÓN', { fontFamily: 'Anton, sans-serif', fontSize: 14, fontWeight: '400', color: INK })
@@ -1291,9 +1398,10 @@ function buildFondaOaxaquena() {
 
   const elements = []
   let z = 0
+  const { marcar, plato, foto } = crearMarcadorDePlatos()
   function push(el) {
     z += 1
-    elements.push({ ...el, zIndex: z })
+    elements.push({ ...marcar(el), zIndex: z })
   }
   function text(x, y, w, h, str, opts) {
     push({
@@ -1328,15 +1436,19 @@ function buildFondaOaxaquena() {
     })
   }
   function photoSlot(x, y) {
-    push({ type: 'rect', x, y, width: 170, height: 170, fill: '#0D0E11', borderRadius: 20, strokeColor: GOLD_BORDER, strokeWidth: 4 })
-    sticker('📷', x + 55, y + 55, 60, 30)
+    foto(() => {
+      push({ type: 'rect', x, y, width: 170, height: 170, fill: '#0D0E11', borderRadius: 20, strokeColor: GOLD_BORDER, strokeWidth: 4, fotoMarco: true })
+      sticker('📷', x + 55, y + 55, 60, 30)
+    })
   }
   function dish(x, y, w, name, desc, price, unit) {
-    text(x, y, w, 22, name, { fontSize: 14, fontWeight: '800', color: '#291708', letterSpacing: 0.5 })
-    text(x, y + 24, w - 70, 50, desc, { fontSize: 11, fontWeight: '500', color: '#4A2E16' })
-    text(x + w - 70, y + 20, 70, 30, price, { fontFamily: 'Anton, sans-serif', fontSize: 22, fontWeight: '400', color: '#231206', align: 'right' })
-    if (unit) text(x + w - 70, y + 50, 70, 16, unit, { fontSize: 10, fontWeight: '700', color: '#8B2B11', align: 'right' })
-    push({ type: 'rect', x, y: y + 82, width: w, height: 1, fill: 'rgba(120,72,20,0.15)' })
+    plato(() => {
+      text(x, y, w, 22, name, { fontSize: 14, fontWeight: '800', color: '#291708', letterSpacing: 0.5, platoCampo: 'nombre' })
+      text(x, y + 24, w - 90, 50, desc, { fontSize: 11, fontWeight: '500', color: '#4A2E16', platoCampo: 'descripcion' })
+      text(x + w - 90, y + 20, 90, 30, price, { fontFamily: 'Anton, sans-serif', fontSize: 22, fontWeight: '400', color: '#231206', align: 'right', platoCampo: 'precio' })
+      if (unit) text(x + w - 90, y + 50, 90, 16, unit, { fontSize: 10, fontWeight: '700', color: '#8B2B11', align: 'right', platoCampo: 'quitar' })
+      push({ type: 'rect', x, y: y + 82, width: w, height: 1, fill: 'rgba(120,72,20,0.15)' })
+    })
   }
 
   push({

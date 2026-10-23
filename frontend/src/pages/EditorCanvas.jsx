@@ -1420,7 +1420,11 @@ function EditorCanvas() {
                     transformOrigin: '0 0',
                   }}
                   className="absolute left-0 top-0"
-                  onPointerDown={clearSelection}
+                  onPointerDown={(e) => {
+                    // Las manijas de Moveable (tamaño, rotación) viven dentro del
+                    // lienzo: si su clic deseleccionara, cancelaría el redimensionado.
+                    if (!e.target.closest('.moveable-control-box')) clearSelection()
+                  }}
                 >
                   {sortedElements.map((el) => (
                     <CanvasElement

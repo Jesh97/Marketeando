@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -20,6 +21,8 @@ type Config struct {
 	YapeTitular           string
 	YapeQRURL             string
 	YapeWebhookSecret     string
+	// Orígenes del frontend autorizados por CORS (CORS_ORIGINS, separados por coma).
+	CORSOrigins           []string
 }
 
 func Load() Config {
@@ -38,7 +41,18 @@ func Load() Config {
 		YapeTitular:         getEnv("YAPE_TITULAR", ""),
 		YapeQRURL:           getEnv("YAPE_QR_URL", "/yape-qr.png"),
 		YapeWebhookSecret:   getEnv("YAPE_WEBHOOK_SECRET", ""),
+		CORSOrigins:         splitList(getEnv("CORS_ORIGINS", "http://localhost:5173")),
 	}
+}
+
+func splitList(value string) []string {
+	var items []string
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimRight(strings.TrimSpace(item), "/"); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func getEnv(key, fallback string) string {

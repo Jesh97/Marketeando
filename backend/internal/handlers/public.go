@@ -45,7 +45,7 @@ func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug strin
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -78,9 +78,18 @@ func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug strin
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
+
+	// Las cartas del plan gratuito (o sin suscripción activa) llevan la marca
+	// de agua de Karta Kamay al pie; los planes pagados se publican sin ella.
+	var planPagado bool
+	_ = h.DB.QueryRow(ctx,
+		`SELECT p.precio > 0 FROM v_plan_restaurante v JOIN plan p ON p.id_plan = v.id_plan
+		 WHERE v.id_restaurante = $1`,
+		idRestaurante,
+	).Scan(&planPagado)
 
 	// 3. Registrar visita
 	origen := c.DefaultQuery("origen", "link")
@@ -119,7 +128,7 @@ func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug strin
 		idRestaurante,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -129,7 +138,7 @@ func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug strin
 		var p productoPublico
 		if err := rows.Scan(&p.IDProducto, &p.IDCategoria, &p.Categoria, &p.Nombre, &p.Descripcion,
 			&p.Precio, &p.URLImagen, &p.Agotado, &p.Etiquetas); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		productos = append(productos, p)
@@ -145,8 +154,9 @@ func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug strin
 			"plantilla":      plantilla,
 			"horario":        horario,
 		},
-		"id_menu":   idMenu,
-		"contenido": json.RawMessage(contenido),
-		"productos": productos,
+		"id_menu":    idMenu,
+		"contenido":  json.RawMessage(contenido),
+		"productos":  productos,
+		"marca_agua": !planPagado,
 	})
 }

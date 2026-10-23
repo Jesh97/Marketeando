@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"marketeando/backend/internal/auth"
+	"marketeando/backend/internal/validacion"
 )
 
 const ContextRestauranteKey = "id_restaurante"
@@ -70,4 +72,24 @@ func RequirePlan(db *pgxpool.Pool, nombrePlan string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// leerJSON lee y valida el body (ver validacion.Leer). Si algo falla ya
+// respondió 400 con un mensaje para el usuario y devuelve false.
+func leerJSON(c *gin.Context, obj any) bool {
+	if err := validacion.Leer(c.Request.Body, obj); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return false
+	}
+	return true
+}
+
+// responderError responde un error de la base de datos sin exponer el
+// detalle técnico al usuario; los inesperados se dejan en el log.
+func responderError(c *gin.Context, err error) {
+	status, mensaje := validacion.ErrorBD(err)
+	if status >= http.StatusInternalServerError {
+		log.Printf("%s %s: %v", c.Request.Method, c.FullPath(), err)
+	}
+	c.AbortWithStatusJSON(status, gin.H{"error": mensaje})
 }

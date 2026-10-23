@@ -24,15 +24,14 @@ func NewAuthHandler(db *pgxpool.Pool, jwtSecret string) *AuthHandler {
 }
 
 type registroRequest struct {
-	Correo     string `json:"correo" binding:"required,email"`
-	Contrasena string `json:"contrasena" binding:"required,min=8"`
-	Nombre     string `json:"nombre" binding:"required"`
+	Correo     string `json:"correo" binding:"required,email,max=150"`
+	Contrasena string `json:"contrasena" binding:"required,min=8,max=72,contrasena" trim:"no"`
+	Nombre     string `json:"nombre" binding:"required,min=2,max=150"`
 }
 
 func (h *AuthHandler) Registro(c *gin.Context) {
 	var req registroRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -47,7 +46,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 	ctx := c.Request.Context()
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer tx.Rollback(ctx)
@@ -63,7 +62,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ya existe una cuenta con ese correo"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -73,7 +72,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 	// complete un formulario de "elige tu subdominio".
 	subdominio, err := generarSubdominioUnico(ctx, tx, slugifyBase(req.Nombre))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -84,7 +83,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 		idUsuario, subdominio,
 	).Scan(&idRestaurante)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -96,7 +95,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 		"INSERT INTO menu (id_restaurante, nombre, es_principal) VALUES ($1, 'Menú principal', true)",
 		idRestaurante,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -127,7 +126,7 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -141,14 +140,13 @@ func (h *AuthHandler) Registro(c *gin.Context) {
 }
 
 type loginRequest struct {
-	Correo     string `json:"correo" binding:"required,email"`
-	Contrasena string `json:"contrasena" binding:"required"`
+	Correo     string `json:"correo" binding:"required,email,max=150"`
+	Contrasena string `json:"contrasena" binding:"required,max=72" trim:"no"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -167,7 +165,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

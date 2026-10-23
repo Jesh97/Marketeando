@@ -809,10 +809,10 @@ function buildPizzeriaLena() {
   text(96, 291, 180, 14, 'MATRIZ DE PRECIOS', { fontSize: 9, fontWeight: '700', color: TEXT_MUTED, letterSpacing: 1 })
   text(340, 291, 140, 14, '12" / 16"', { fontSize: 9, fontWeight: '700', color: AMBER, align: 'right', letterSpacing: 1 })
 
-  pizzaRow(80, 326, 400, 'D.O.P.', 'Margherita D.O.P.', 'San Marzano, mozzarella di bufala, albahaca fresca', '$14', '$21')
-  pizzaRow(80, 404, 400, 'PICANTE', 'Diavola Rústica', 'Salame calabrés, ñduja, mozzarella, chile en hojuelas', '$16', '$23')
-  pizzaRow(80, 482, 400, 'BLANCA', 'Quattro Formaggi', 'Gorgonzola, provola ahumada, pecorino, tomillo', '$17', '$24')
-  pizzaRow(80, 560, 400, 'BOSQUE', 'Prosciutto e Funghi', 'Champiñones asados, jamón cocido, mantequilla de tomillo', '$16', '$23')
+  pizzaRow(80, 326, 400, 'D.O.P.', 'Margherita D.O.P.', 'San Marzano, mozzarella di bufala, albahaca fresca', 'S/ 14', 'S/ 21')
+  pizzaRow(80, 404, 400, 'PICANTE', 'Diavola Rústica', 'Salame calabrés, ñduja, mozzarella, chile en hojuelas', 'S/ 16', 'S/ 23')
+  pizzaRow(80, 482, 400, 'BLANCA', 'Quattro Formaggi', 'Gorgonzola, provola ahumada, pecorino, tomillo', 'S/ 17', 'S/ 24')
+  pizzaRow(80, 560, 400, 'BOSQUE', 'Prosciutto e Funghi', 'Champiñones asados, jamón cocido, mantequilla de tomillo', 'S/ 16', 'S/ 23')
 
   push({ type: 'rect', x: 80, y: 650, width: 400, height: 70, fill: CARD_HIGH, borderRadius: 10 })
   sticker('🌾', 96, 665, 40)
@@ -830,7 +830,7 @@ function buildPizzeriaLena() {
 
   push({ type: 'rect', x: 990, y: 176, width: 90, height: 60, fill: '#0D0E11', opacity: 90, borderRadius: 10 })
   text(990, 184, 90, 12, 'DESDE', { fontSize: 8, color: TEXT_MUTED, align: 'center', letterSpacing: 1 })
-  text(990, 198, 90, 32, '$23', { fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: '700', color: AMBER, align: 'center' })
+  text(990, 198, 90, 32, 'S/ 23', { fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: '700', color: AMBER, align: 'center' })
 
   push({ type: 'rect', x: 550, y: 406, width: 250, height: 28, fill: '#0D0E11', opacity: 80, borderRadius: 6 })
   text(550, 412, 250, 16, '✓ Borde moteado · 90 seg', { fontSize: 10, fontWeight: '600', color: TEXT_LIGHT, align: 'center' })
@@ -860,7 +860,7 @@ function buildPizzeriaLena() {
   text(624, 670, 300, 14, 'MARIDAJE RECOMENDADO', { fontSize: 9, fontWeight: '700', color: AMBER, letterSpacing: 1 })
   text(624, 686, 300, 20, 'Chianti Classico Riserva 2019', { fontSize: 14, fontWeight: '700', color: TEXT_LIGHT })
   text(624, 706, 300, 16, 'Sangiovese toscano, notas de cereza y acidez fresca', { fontSize: 10, color: TEXT_MUTED })
-  text(980, 676, 90, 28, '+$9', { fontSize: 20, fontWeight: '700', color: AMBER, align: 'right' })
+  text(980, 676, 90, 28, '+S/ 9', { fontSize: 20, fontWeight: '700', color: AMBER, align: 'right' })
   text(980, 706, 90, 14, 'Copa 150ml', { fontSize: 9, color: TEXT_MUTED, align: 'right' })
 
   // Columna 3 — Antipasti, pasta y bebidas
@@ -869,17 +869,17 @@ function buildPizzeriaLena() {
   heading(1160, 200, 350, 'ANTIPASTI Y PASTA')
   push({ type: 'rect', x: 1160, y: 236, width: 350, height: 1, fill: AMBER, opacity: 30 })
 
-  listRow(1160, 252, 350, 'Arancini de trufa', '$12', 'Risotto crocante, trufa negra, taleggio, alioli')
-  listRow(1160, 308, 350, 'Burrata Pugliese', '$15', 'Tomates cherry confitados, aceite de albahaca, pan tostado')
-  listRow(1160, 364, 350, 'Rigatoni al Ragú', '$18', 'Res braseada lenta, sangiovese, parmesano 36 meses')
-  listRow(1160, 420, 350, 'Gnocchi Sorrentina', '$16', 'Ñoquis de papa, provola ahumada, albahaca')
+  listRow(1160, 252, 350, 'Arancini de trufa', 'S/ 12', 'Risotto crocante, trufa negra, taleggio, alioli')
+  listRow(1160, 308, 350, 'Burrata Pugliese', 'S/ 15', 'Tomates cherry confitados, aceite de albahaca, pan tostado')
+  listRow(1160, 364, 350, 'Rigatoni al Ragú', 'S/ 18', 'Res braseada lenta, sangiovese, parmesano 36 meses')
+  listRow(1160, 420, 350, 'Gnocchi Sorrentina', 'S/ 16', 'Ñoquis de papa, provola ahumada, albahaca')
 
   push({ type: 'rect', x: 1160, y: 470, width: 350, height: 1, fill: AMBER, opacity: 20 })
   text(1160, 482, 350, 18, 'VINOS Y CERVEZAS ARTESANALES', { fontSize: 12, fontWeight: '700', color: AMBER, letterSpacing: 1 })
 
-  drinkRow(1160, 508, 350, 'Birra Moretti', 'Lager fresca · 4.8% · Pinta 470ml', '$8')
-  drinkRow(1160, 548, 350, 'Vino de la casa (Montepulciano)', 'Garrafa 500ml o copa 250ml', '$14/$8')
-  drinkRow(1160, 588, 350, 'San Pellegrino y limonada bio', 'Con gas o Aranciata Rossa 330ml', '$4.50')
+  drinkRow(1160, 508, 350, 'Birra Moretti', 'Lager fresca · 4.8% · Pinta 470ml', 'S/ 8')
+  drinkRow(1160, 548, 350, 'Vino de la casa (Montepulciano)', 'Garrafa 500ml o copa 250ml', 'S/ 14 / 8')
+  drinkRow(1160, 588, 350, 'San Pellegrino y limonada bio', 'Con gas o Aranciata Rossa 330ml', 'S/ 4.50')
 
   // Pie
   push({ type: 'rect', x: 50, y: 870, width: 1500, height: 54, fill: CARD, borderRadius: 10 })
@@ -1364,13 +1364,13 @@ function buildFondaOaxaquena() {
   text(230, 228, 400, 50, 'NUESTRO MENÚ', { fontFamily: 'Anton, sans-serif', fontSize: 30, fontWeight: '400', color: RED, align: 'center', letterSpacing: 2 })
   push({ type: 'rect', x: 330, y: 280, width: 200, height: 4, fill: TERRACOTTA, borderRadius: 2 })
 
-  dish(60, 320, 350, 'TLAYUDAS DE TASAJO Y CECINA', 'Tortilla de maíz criollo de 30cm, asiento de leña, frijol negro, quesillo y col fresca.', '$160')
-  dish(60, 420, 350, 'ENMOLADAS OAXAQUEÑAS', '3 tortillas bañadas en mole negro tradicional, pollo deshebrado, quesillo y ajonjolí.', '$85')
-  dish(60, 520, 350, 'TACOS BARBACOA EN MAGUEY', '3 tacos de borrego cocido 12h en hoyo artesanal, con consomé y cilantro.', '$95')
+  dish(60, 320, 350, 'TLAYUDAS DE TASAJO Y CECINA', 'Tortilla de maíz criollo de 30cm, asiento de leña, frijol negro, quesillo y col fresca.', 'S/ 160')
+  dish(60, 420, 350, 'ENMOLADAS OAXAQUEÑAS', '3 tortillas bañadas en mole negro tradicional, pollo deshebrado, quesillo y ajonjolí.', 'S/ 85')
+  dish(60, 520, 350, 'TACOS BARBACOA EN MAGUEY', '3 tacos de borrego cocido 12h en hoyo artesanal, con consomé y cilantro.', 'S/ 95')
 
-  dish(450, 320, 350, 'CALDO DE PIEDRA COSTEÑO', 'Cocción con piedra de río, camarón, huachinango, jitomate y epazote.', '$130')
-  dish(450, 420, 350, 'MEMELAS DE ASIENTO', 'Al comal de barro con manteca dorada, frijol negro y queso fresco de aro.', '$45', 'PIEZA')
-  dish(450, 520, 350, 'CHILES DE AGUA RELLENOS', 'Chile endémico capeado con huevo de rancho, relleno de picadillo criollo.', '$75')
+  dish(450, 320, 350, 'CALDO DE PIEDRA COSTEÑO', 'Cocción con piedra de río, camarón, huachinango, jitomate y epazote.', 'S/ 130')
+  dish(450, 420, 350, 'MEMELAS DE ASIENTO', 'Al comal de barro con manteca dorada, frijol negro y queso fresco de aro.', 'S/ 45', 'PIEZA')
+  dish(450, 520, 350, 'CHILES DE AGUA RELLENOS', 'Chile endémico capeado con huevo de rancho, relleno de picadillo criollo.', 'S/ 75')
 
   photoSlot(40, 650)
   photoSlot(650, 650)

@@ -21,7 +21,7 @@ func subirImagen(c *gin.Context, folder string) (url string, ok bool) {
 		return "", false
 	}
 	if fileHeader.Size > maxUploadBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 10 MB"})
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "la imagen supera los 5 MB"})
 		return "", false
 	}
 
@@ -49,7 +49,7 @@ func subirImagen(c *gin.Context, folder string) (url string, ok bool) {
 
 	imageURL, err := cloudinaryutil.Upload(c.Request.Context(), reader, folder)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo subir la imagen: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "no se pudo subir la imagen, intenta de nuevo"})
 		return "", false
 	}
 

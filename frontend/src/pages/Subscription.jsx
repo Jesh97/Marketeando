@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
+import YapePagoModal from '../components/YapePagoModal'
 import { useRestaurante } from '../context/RestauranteContext'
 import { tokenizarTarjeta } from '../lib/culqi'
 
@@ -8,6 +9,15 @@ const TIPOS_METODO_PAGO = [
   { value: 'tarjeta', label: 'Tarjeta' },
   { value: 'yape', label: 'Yape' },
 ]
+
+// La tarjeta (Culqi) queda desactivada hasta tener RUC para afiliarse; los
+// planes pagados se cobran con Yape (ver YapePagoModal).
+const TARJETA_HABILITADA = false
+
+// Días antes del vencimiento en que se empieza a avisar para renovar, y días
+// de gracia después (deben coincidir con diasGraciaVencimiento del backend).
+const DIAS_AVISO_RENOVACION = 5
+const DIAS_GRACIA = 3
 
 const ESTADO_FACTURA = {
   pagada: { label: 'Pagado', className: 'text-[#16A34A]' },
@@ -21,6 +31,10 @@ function metodoPagoLabel(value) {
 
 function precioLabel(precio) {
   return precio > 0 ? `S/ ${precio.toFixed(2)}/mes` : 'Gratis'
+}
+
+function diasHasta(value) {
+  return Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000)
 }
 
 function formatFecha(value) {
@@ -180,6 +194,8 @@ function Subscription() {
   // Plan que espera un método de pago guardado antes de confirmarse.
   const [pendingPlan, setPendingPlan] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  // Plan que se está pagando con Yape (abre YapePagoModal).
+  const [yapePlan, setYapePlan] = useState(null)
 
   const cargar = useCallback(async () => {
     if (!idRestaurante) return
@@ -256,6 +272,16 @@ function Subscription() {
   }
 
   function handleElegirPlan(plan) {
+    if (plan.precio <= 0) {
+      if (window.confirm(`¿Cambiar al plan ${plan.nombre} (Gratis)? Pasará a aplicarse de inmediato.`)) {
+        suscribir(plan.id_plan, 'yape')
+      }
+      return
+    }
+    if (!TARJETA_HABILITADA) {
+      setYapePlan(plan)
+      return
+    }
     if (metodoPago) {
       const confirmado = window.confirm(
         `¿Cambiar al plan ${plan.nombre} (${precioLabel(plan.precio)})? Se cobrará con tu método de pago actual (${metodoPagoLabel(metodoPago.tipo)}).`,
@@ -270,7 +296,7 @@ function Subscription() {
     const basico = planes.find((p) => p.nombre === 'Básico')
     if (!basico) return
     if (!window.confirm('¿Cancelar tu suscripción? Tu restaurante pasará al plan Gratis de inmediato.')) return
-    suscribir(basico.id_plan, metodoPago?.tipo ?? 'otro')
+    suscribir(basico.id_plan, 'yape')
   }
 
   if (loading) {
@@ -291,9 +317,40 @@ function Subscription() {
 
   const modalAbierto = showPaymentModal || Boolean(pendingPlan)
 
+  const planPagado = (currentPlan?.precio ?? 0) > 0
+  const diasRestantes = suscripcion && planPagado ? diasHasta(suscripcion.fecha_fin) : null
+  const enGracia = diasRestantes !== null && diasRestantes <= 0
+  const avisarRenovacion = diasRestantes !== null && diasRestantes <= DIAS_AVISO_RENOVACION
+
   return (
     <DashboardShell>
       <h1 className="mb-7 text-[28px] font-extrabold tracking-tight text-navy">Suscripción</h1>
+
+      {avisarRenovacion && (
+        <div
+          className={`mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border p-5 ${
+            enGracia ? 'border-[#FCA5A5] bg-[#FEF2F2]' : 'border-[#FCD34D] bg-[#FFFBEB]'
+          }`}
+        >
+          <div>
+            <p className={`text-[15px] font-bold ${enGracia ? 'text-[#991B1B]' : 'text-[#92400E]'}`}>
+              {enGracia ? `Tu plan ${suscripcion.plan} venció` : `Tu plan ${suscripcion.plan} vence pronto`}
+            </p>
+            <p className={`mt-1 text-[13px] ${enGracia ? 'text-[#B91C1C]' : 'text-[#B45309]'}`}>
+              {enGracia
+                ? `Renueva antes del ${formatFecha(new Date(new Date(suscripcion.fecha_fin).getTime() + DIAS_GRACIA * 86_400_000))} o tu restaurante pasará al plan Gratis.`
+                : `Vence el ${formatFecha(suscripcion.fecha_fin)}. Renueva con Yape para no perder tus beneficios.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setYapePlan(currentPlan)}
+            className="rounded-[9px] bg-orange px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-dark"
+          >
+            Renovar con Yape
+          </button>
+        </div>
+      )}
 
       <div className="mb-4 grid grid-cols-1 gap-[18px] lg:grid-cols-[1.3fr_1fr]">
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-navy bg-navy p-6">
@@ -308,9 +365,9 @@ function Subscription() {
                   </span>
                 </p>
                 <p className="mt-2 text-[13px] text-[#A9B4C8]">
-                  {suscripcion.renueva_en
-                    ? `Se renueva automáticamente el ${formatFecha(suscripcion.renueva_en)}`
-                    : `Vence el ${formatFecha(suscripcion.fecha_fin)}`}
+                  {!planPagado
+                    ? 'Plan gratuito, sin vencimiento'
+                    : `Pagado hasta el ${formatFecha(suscripcion.fecha_fin)}`}
                 </p>
               </>
             ) : (
@@ -329,15 +386,25 @@ function Subscription() {
         <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-6">
           <p className="text-xs font-bold uppercase tracking-wide text-[#8A94A6]">Método de pago</p>
 
-          {metodoPago?.tipo === 'tarjeta' ? (
+          {!TARJETA_HABILITADA ? (
+            <div className="mt-3.5">
+              <p className="text-sm font-bold text-navy">Yape</p>
+              <p className="text-xs text-[#8A94A6]">
+                Pagas cada mes escaneando un QR; tu plan se activa al instante.
+              </p>
+            </div>
+          ) : metodoPago?.tipo === 'tarjeta' ? (
             <div className="mt-3.5 flex items-center gap-3">
               <CardBrandMark marca={metodoPago.marca} className="h-[26px] w-10 shrink-0 ring-1 ring-[#E2E8F0]" />
               <div>
                 <p className="text-sm font-bold text-navy">•••• •••• •••• {metodoPago.ultimos4}</p>
-                <p className="text-xs text-[#8A94A6]">
-                  Vence {metodoPago.vencimiento}
-                  {metodoPago.titular ? ` · ${metodoPago.titular}` : ''}
-                </p>
+                {(metodoPago.vencimiento || metodoPago.titular) && (
+                  <p className="text-xs text-[#8A94A6]">
+                    {[metodoPago.vencimiento && `Vence ${metodoPago.vencimiento}`, metodoPago.titular]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
               </div>
             </div>
           ) : metodoPago ? (
@@ -352,10 +419,14 @@ function Subscription() {
           <button
             type="button"
             onClick={() => setShowPaymentModal(true)}
-            disabled={working}
-            className="mt-4 text-[13px] font-semibold text-orange-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={working || !TARJETA_HABILITADA}
+            className="mt-4 text-[13px] font-semibold text-orange-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
           >
-            {metodoPago ? 'Actualizar método de pago' : 'Agregar método de pago'}
+            {!TARJETA_HABILITADA
+              ? 'Pago con tarjeta (próximamente)'
+              : metodoPago
+                ? 'Actualizar método de pago'
+                : 'Agregar método de pago'}
           </button>
         </div>
       </div>
@@ -465,6 +536,18 @@ function Subscription() {
             setShowPaymentModal(false)
           }}
           onSave={guardarMetodoPago}
+        />
+      )}
+
+      {yapePlan && (
+        <YapePagoModal
+          idRestaurante={idRestaurante}
+          plan={yapePlan}
+          onClose={() => setYapePlan(null)}
+          onConfirmado={() => {
+            setYapePlan(null)
+            cargar()
+          }}
         />
       )}
     </DashboardShell>

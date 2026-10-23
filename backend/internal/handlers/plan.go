@@ -24,7 +24,7 @@ func (h *PlanHandler) List(c *gin.Context) {
 		"SELECT id_plan, nombre, precio, max_menu, max_local, activo FROM plan WHERE activo ORDER BY precio",
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -33,7 +33,7 @@ func (h *PlanHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var p models.Plan
 		if err := rows.Scan(&p.IDPlan, &p.Nombre, &p.Precio, &p.MaxMenu, &p.MaxLocal, &p.Activo); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		planes = append(planes, p)

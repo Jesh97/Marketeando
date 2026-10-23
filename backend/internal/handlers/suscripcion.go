@@ -40,7 +40,7 @@ func (h *SuscripcionHandler) Get(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -60,8 +60,7 @@ type suscribirRequest struct {
 // Culqi), y si falla no se toca la suscripción ni se emite ninguna factura.
 func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 	var req suscribirRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -82,7 +81,7 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 			 WHERE r.id_restaurante = $1`,
 			idRestaurante,
 		).Scan(&correo); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 
@@ -117,7 +116,7 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer tx.Rollback(ctx)
@@ -126,7 +125,7 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 		"UPDATE suscripcion SET estado = 'cancelada', cancelado_en = now() WHERE id_restaurante = $1 AND estado = 'activa'",
 		idRestaurante,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -141,7 +140,7 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 		idRestaurante, req.IDPlan, req.MetodoPago, inicio, fin, renuevaEn,
 	).Scan(&idSuscripcion)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -154,12 +153,12 @@ func (h *SuscripcionHandler) Suscribir(c *gin.Context) {
 		 VALUES ($1, $2, 'pagada', $3, $4, now(), $5, 'PEN')`,
 		idSuscripcion, precio, inicio, fin, chargeIDColumna,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -178,7 +177,7 @@ func (h *SuscripcionHandler) Facturas(c *gin.Context) {
 		currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -197,7 +196,7 @@ func (h *SuscripcionHandler) Facturas(c *gin.Context) {
 	for rows.Next() {
 		var f factura
 		if err := rows.Scan(&f.IDFactura, &f.Monto, &f.Estado, &f.PeriodoInicio, &f.PeriodoFin, &f.FechaEmision, &f.Plan); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		facturas = append(facturas, f)

@@ -8,6 +8,7 @@ import { useLocal } from '../context/LocalContext'
 import { imageToDataUrl, imageToLumaMap, imageToMask, urlToImage } from '../lib/logoMask'
 import { construirSvg, rasterizarPng } from '../lib/qrEngine'
 import { getPaleta } from '../utils/paletas'
+import { LIMITES, validarTexto } from '../lib/validaciones'
 
 function EyeIcon() {
   return (
@@ -319,6 +320,11 @@ function Dashboard() {
 
   const crearSucursal = async () => {
     if (!nuevoNombreLocal.trim()) return
+    const errorNombre = validarTexto(nuevoNombreLocal, { etiqueta: 'El nombre de la sucursal', max: LIMITES.nombreCorto })
+    if (errorNombre) {
+      setErrorLocal(errorNombre)
+      return
+    }
     setCreandoLocal(true)
     setErrorLocal('')
     try {
@@ -727,6 +733,7 @@ function Dashboard() {
             <input
               type="text"
               value={nuevoNombreLocal}
+              maxLength={LIMITES.nombreCorto}
               onChange={(e) => setNuevoNombreLocal(e.target.value)}
               placeholder="Ej. Miraflores, San Isidro…"
               className="mt-1.5 w-full rounded-[9px] border border-[#E2E8F0] px-3.5 py-2.5 text-sm outline-none focus:border-current"

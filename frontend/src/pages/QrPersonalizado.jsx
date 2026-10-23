@@ -4,6 +4,7 @@ import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
 import { fileToImage, imageToDataUrl, imageToLumaMap, imageToMask, urlToImage } from '../lib/logoMask'
+import { validarImagen } from '../lib/validaciones'
 import {
   ARTE_OPACIDAD_DEFAULT,
   ARTE_PRIORIDAD_DEFAULT,
@@ -513,8 +514,9 @@ function QrPersonalizado() {
     if (!file) return
     setError('')
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('El logo supera los 2MB.')
+    const errorImagen = validarImagen(file)
+    if (errorImagen) {
+      setError(errorImagen)
       return
     }
 

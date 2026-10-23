@@ -20,7 +20,7 @@ func NewCampaignHandler(db *pgxpool.Pool) *CampaignHandler {
 func (h *CampaignHandler) List(c *gin.Context) {
 	rows, err := h.DB.Query(c.Request.Context(), "SELECT id, name, created_at FROM campaigns ORDER BY id DESC")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -29,7 +29,7 @@ func (h *CampaignHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var camp models.Campaign
 		if err := rows.Scan(&camp.ID, &camp.Name, &camp.CreatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		campaigns = append(campaigns, camp)
@@ -44,8 +44,7 @@ type createCampaignRequest struct {
 
 func (h *CampaignHandler) Create(c *gin.Context) {
 	var req createCampaignRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -56,7 +55,7 @@ func (h *CampaignHandler) Create(c *gin.Context) {
 		req.Name,
 	).Scan(&camp.ID, &camp.Name, &camp.CreatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

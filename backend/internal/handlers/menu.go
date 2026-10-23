@@ -29,7 +29,7 @@ func (h *MenuHandler) List(c *gin.Context) {
 		currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -39,7 +39,7 @@ func (h *MenuHandler) List(c *gin.Context) {
 		var m models.Menu
 		if err := rows.Scan(&m.IDMenu, &m.IDRestaurante, &m.Nombre, &m.EsPrincipal, &m.Activo,
 			&m.FechaCreacion, &m.FechaActualizacion); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		menus = append(menus, m)
@@ -49,15 +49,14 @@ func (h *MenuHandler) List(c *gin.Context) {
 }
 
 type crearMenuRequest struct {
-	Nombre string `json:"nombre" binding:"required"`
+	Nombre string `json:"nombre" binding:"required,min=2,max=100"`
 }
 
 // Create crea un menú nuevo, respetando el max_menu del plan activo del
 // restaurante (mismo límite que el MenuSwitcher del Editor en el frontend).
 func (h *MenuHandler) Create(c *gin.Context) {
 	var req crearMenuRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -73,7 +72,7 @@ func (h *MenuHandler) Create(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -81,7 +80,7 @@ func (h *MenuHandler) Create(c *gin.Context) {
 	if err := h.DB.QueryRow(ctx,
 		"SELECT count(*) FROM menu WHERE id_restaurante = $1 AND activo", idRestaurante,
 	).Scan(&totalMenus); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -106,7 +105,7 @@ func (h *MenuHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ya existe un menú con ese nombre"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -162,8 +161,7 @@ func (h *MenuHandler) GuardarBorrador(c *gin.Context) {
 	}
 
 	var req actualizarBorradorRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -208,7 +206,7 @@ func (h *MenuHandler) Publicar(c *gin.Context) {
 
 	var idVersionPublicada int
 	if err := h.DB.QueryRow(ctx, "SELECT publicar_menu($1)", idMenu).Scan(&idVersionPublicada); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -232,8 +230,7 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 	}
 
 	var req publicarDisenoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -260,7 +257,7 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -281,13 +278,13 @@ func (h *MenuHandler) PublicarDiseno(c *gin.Context) {
 		"UPDATE menu_version SET contenido = $1 WHERE id_menu = $2 AND estado = 'borrador'",
 		contenido, idMenu,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
 	var idVersionPublicada int
 	if err := h.DB.QueryRow(ctx, "SELECT publicar_menu($1)", idMenu).Scan(&idVersionPublicada); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

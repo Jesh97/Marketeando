@@ -12,12 +12,15 @@ import (
 	"marketeando/backend/internal/config"
 	"marketeando/backend/internal/culqi"
 	"marketeando/backend/internal/database"
+	"marketeando/backend/internal/handlers"
 	"marketeando/backend/internal/routes"
+	"marketeando/backend/internal/validacion"
 )
 
 func main() {
 	cfg := config.Load()
 	culqi.Init(cfg.CulqiSecretKey)
+	validacion.Registrar()
 
 	if err := cloudinaryutil.Init(cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret); err != nil {
 		log.Fatalf("cloudinary init failed: %v", err)
@@ -43,7 +46,8 @@ func main() {
 	}))
 	router.Static("/uploads", cfg.UploadDir)
 
-	routes.Register(router, db, cfg.JWTSecret, cfg.UploadDir)
+	routes.Register(router, db, cfg)
+	handlers.IniciarVencimientos(ctx, db)
 
 	log.Printf("server listening on :%s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {

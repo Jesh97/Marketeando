@@ -50,7 +50,7 @@ func (h *QRPersonalizacionHandler) Get(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -70,8 +70,7 @@ type guardarQRPersonalizacionRequest struct {
 // SubirLogo). Protegido por RequirePlan(db, "Enterprise") en la ruta.
 func (h *QRPersonalizacionHandler) Update(c *gin.Context) {
 	var req guardarQRPersonalizacionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 	if !json.Valid(req.Colores) {
@@ -101,7 +100,7 @@ func (h *QRPersonalizacionHandler) Update(c *gin.Context) {
 		idRestaurante, req.Modo, []byte(req.Colores), req.Sensibilidad, []byte(req.Ajustes),
 	).Scan(&q.Modo, &q.Colores, &q.Sensibilidad, &q.Ajustes, &q.LogoURL, &q.FechaActualizacion)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -116,9 +115,9 @@ func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "falta el archivo (campo 'file')"})
 		return
 	}
-	const maxLogoBytes = 2 << 20 // 2 MB
+	const maxLogoBytes = maxUploadBytes
 	if fileHeader.Size > maxLogoBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "el logo supera los 2 MB"})
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "el logo supera los 5 MB"})
 		return
 	}
 
@@ -159,7 +158,7 @@ func (h *QRPersonalizacionHandler) SubirLogo(c *gin.Context) {
 		idRestaurante, logoURL,
 	).Scan(&q.Modo, &q.Colores, &q.Sensibilidad, &q.Ajustes, &q.LogoURL, &q.FechaActualizacion)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

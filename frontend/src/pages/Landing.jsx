@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import apiClient from '../api/client'
+import { formatSoles } from '../lib/moneda'
 import escaneandoCodigo from '../assets/escaneando_codigo.png'
 import restauranteLobby from '../assets/restaurante_lobby.png'
 import logoMark from '../assets/logo-mark.png'
@@ -619,7 +621,29 @@ function Stats() {
   )
 }
 
+// Precio mensual de un plan tal como está en la base de datos (en soles).
+// Mientras carga (o si el backend no responde) muestra un guion.
+function PrecioPlan({ plan }) {
+  return (
+    <div className="mt-3 flex items-baseline gap-1">
+      <span className="text-4xl font-bold text-brown-deep">{plan ? formatSoles(plan.precio) : '—'}</span>
+      <span className="text-sm text-brown-body font-normal">/mes</span>
+    </div>
+  )
+}
+
 function Pricing() {
+  const [planes, setPlanes] = useState([])
+
+  useEffect(() => {
+    apiClient
+      .get('/planes')
+      .then(({ data }) => setPlanes(data))
+      .catch(() => setPlanes([]))
+  }, [])
+
+  const plan = (nombre) => planes.find((p) => p.nombre === nombre)
+
   return (
     <section className="w-full py-24 bg-cream-base" id="planes">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
@@ -664,10 +688,7 @@ function Pricing() {
               </div>
               <div>
                 <span className="text-sm font-semibold uppercase tracking-wider text-orange-action block">Pro</span>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-brown-deep">$19</span>
-                  <span className="text-sm text-brown-body font-normal">/mes (o S/ 69/mes)</span>
-                </div>
+                <PrecioPlan plan={plan('Pro')} />
                 <p className="mt-2 text-xs text-brown-body">Para restaurantes que quieren control total y marca propia.</p>
                 <div className="my-6 border-t border-border-warm/60" />
                 <ul className="space-y-3.5 text-sm text-brown-body">
@@ -696,10 +717,7 @@ function Pricing() {
             <div className="flex flex-col justify-between p-8 rounded-[24px] bg-cream-base border border-border-warm shadow-sm hover:shadow-md transition-shadow h-full">
               <div>
                 <span className="text-sm font-semibold uppercase tracking-wider text-brown-body block">Enterprise</span>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-brown-deep">$49</span>
-                  <span className="text-sm text-brown-body font-normal">/mes</span>
-                </div>
+                <PrecioPlan plan={plan('Enterprise')} />
                 <p className="mt-2 text-xs text-brown-body">Soluciones avanzadas para cadenas y franquicias.</p>
                 <div className="my-6 border-t border-border-warm/60" />
                 <ul className="space-y-3.5 text-sm text-brown-body">

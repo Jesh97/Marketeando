@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import apiClient from '../api/client'
+import logoMark from '../assets/logo-mark.png'
 import DisenoEscalado from '../components/DisenoEscalado'
 import { hidratarDiseno } from '../lib/disenoProductos'
 import { cargarFuentes, familiasEnHtml } from '../lib/fuentes'
@@ -136,6 +137,27 @@ function DishCard({ dish, paleta, mostrarFotos, mostrarPrecios }) {
   )
 }
 
+// Marca de agua de las cartas del plan gratuito (el backend manda
+// marca_agua=true): una franja al pie de la carta que también sale al
+// imprimirla o guardarla como PDF. Los planes pagados se publican sin ella.
+function MarcaAgua({ paleta }) {
+  return (
+    <div
+      className="flex items-center justify-center gap-2.5 px-6 py-4 print:py-3"
+      style={{ background: paleta.footer, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+    >
+      <img src={logoMark} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
+      <p className="text-xs" style={{ color: paleta.headerSub }}>
+        Carta creada con{' '}
+        <Link to="/" className="font-bold hover:underline" style={{ color: paleta.headerText }}>
+          Karta Kamay
+        </Link>
+        <span className="hidden sm:inline"> · Crea la tuya gratis en kartakamay.app</span>
+      </p>
+    </div>
+  )
+}
+
 function PublicMenu() {
   const { slug, local_slug } = useParams()
   const [data, setData] = useState(null)
@@ -189,12 +211,7 @@ function PublicMenu() {
       <div className="min-h-svh" style={{ background: paleta.fondoPagina }}>
         <div className="mx-auto w-full max-w-2xl">
           <DisenoEscalado html={disenoHtml} canvas={disenoCanvas} />
-        </div>
-        <div className="px-6 py-8 text-center" style={{ background: paleta.footer }}>
-          <p className="text-xs" style={{ color: paleta.headerSub }}>
-            Menú digital creado con{' '}
-            <span className="font-bold" style={{ color: paleta.headerText }}>Karta Kamay</span>
-          </p>
+          {data.marca_agua && <MarcaAgua paleta={paleta} />}
         </div>
       </div>
     )
@@ -293,13 +310,7 @@ function PublicMenu() {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="px-6 py-8 text-center sm:px-14" style={{ background: paleta.footer }}>
-        <p className="text-xs" style={{ color: paleta.headerSub }}>
-          Menú digital creado con{' '}
-          <span className="font-bold" style={{ color: paleta.headerText }}>Karta Kamay</span>
-        </p>
-      </div>
+      {data.marca_agua && <MarcaAgua paleta={paleta} />}
     </div>
   )
 }

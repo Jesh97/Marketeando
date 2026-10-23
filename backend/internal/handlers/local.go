@@ -37,7 +37,7 @@ func (h *LocalHandler) List(c *gin.Context) {
 		currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -46,7 +46,7 @@ func (h *LocalHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var l models.Local
 		if err := scanLocal(rows, &l); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		locals = append(locals, l)
@@ -55,14 +55,14 @@ func (h *LocalHandler) List(c *gin.Context) {
 }
 
 type localRequest struct {
-	Nombre        string   `json:"nombre" binding:"required"`
-	Slug          string   `json:"slug"`
-	Direccion     *string  `json:"direccion"`
-	Telefono      *string  `json:"telefono"`
-	HorarioTexto  *string  `json:"horario_texto"`
-	HorarioDias   []string `json:"horario_dias"`
-	HorarioDesde  string   `json:"horario_desde"`
-	HorarioHasta  string   `json:"horario_hasta"`
+	Nombre        string   `json:"nombre" binding:"required,min=2,max=100"`
+	Slug          string   `json:"slug" binding:"max=40"`
+	Direccion     *string  `json:"direccion" binding:"omitempty,max=150"`
+	Telefono      *string  `json:"telefono" binding:"omitempty,telefono"`
+	HorarioTexto  *string  `json:"horario_texto" binding:"omitempty,max=150"`
+	HorarioDias   []string `json:"horario_dias" binding:"max=7,dive,max=20"`
+	HorarioDesde  string   `json:"horario_desde" binding:"omitempty,hora"`
+	HorarioHasta  string   `json:"horario_hasta" binding:"omitempty,hora"`
 }
 
 func buildHorarioJSON(req localRequest) *string {
@@ -103,7 +103,7 @@ func (h *LocalHandler) Create(c *gin.Context) {
 		"SELECT count(*) FROM local WHERE id_restaurante = $1 AND activo",
 		idRestaurante,
 	).Scan(&countActual); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -117,8 +117,7 @@ func (h *LocalHandler) Create(c *gin.Context) {
 	}
 
 	var req localRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -189,8 +188,7 @@ func (h *LocalHandler) Update(c *gin.Context) {
 	}
 
 	var req localRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -227,8 +225,7 @@ func (h *LocalHandler) ReplicarCarta(c *gin.Context) {
 	var req struct {
 		IDLocalOrigen int `json:"id_local_origen" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -280,7 +277,7 @@ func (h *LocalHandler) Delete(c *gin.Context) {
 		idLocal, currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {

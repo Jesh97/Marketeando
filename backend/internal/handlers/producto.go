@@ -48,7 +48,7 @@ func (h *ProductoHandler) List(c *gin.Context) {
 		currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -57,7 +57,7 @@ func (h *ProductoHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var p models.Producto
 		if err := scanProducto(rows, &p); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		productos = append(productos, p)
@@ -68,16 +68,15 @@ func (h *ProductoHandler) List(c *gin.Context) {
 
 type productoRequest struct {
 	IDCategoria *int    `json:"id_categoria"`
-	Nombre      string  `json:"nombre" binding:"required"`
-	Descripcion *string `json:"descripcion"`
-	Precio      float64 `json:"precio" binding:"required,min=0"`
-	URLImagen   *string `json:"url_imagen"`
+	Nombre      string  `json:"nombre" binding:"required,min=2,max=150"`
+	Descripcion *string `json:"descripcion" binding:"omitempty,max=500"`
+	Precio      float64 `json:"precio" binding:"min=0.1,max=9999.99,dosdecimales"`
+	URLImagen   *string `json:"url_imagen" binding:"omitempty,url,max=255"`
 }
 
 func (h *ProductoHandler) Create(c *gin.Context) {
 	var req productoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -89,7 +88,7 @@ func (h *ProductoHandler) Create(c *gin.Context) {
 		currentRestauranteID(c), req.IDCategoria, req.Nombre, req.Descripcion, req.Precio, req.URLImagen,
 	), &p)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -104,8 +103,7 @@ func (h *ProductoHandler) Update(c *gin.Context) {
 	}
 
 	var req productoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -162,7 +160,7 @@ func (h *ProductoHandler) Delete(c *gin.Context) {
 		idProducto, currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {

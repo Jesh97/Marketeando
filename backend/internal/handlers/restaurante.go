@@ -20,10 +20,10 @@ func NewRestauranteHandler(db *pgxpool.Pool, uploadDir string) *RestauranteHandl
 }
 
 type crearRestauranteRequest struct {
-	Nombre     string  `json:"nombre" binding:"required"`
-	Subdominio string  `json:"subdominio" binding:"required"`
-	Slogan     *string `json:"slogan"`
-	Telefono   *string `json:"telefono"`
+	Nombre     string  `json:"nombre" binding:"required,min=2,max=150"`
+	Subdominio string  `json:"subdominio" binding:"required,subdominio"`
+	Slogan     *string `json:"slogan" binding:"omitempty,max=150"`
+	Telefono   *string `json:"telefono" binding:"omitempty,telefono"`
 }
 
 // Mis restaurantes (los del usuario autenticado)
@@ -36,7 +36,7 @@ func (h *RestauranteHandler) List(c *gin.Context) {
 		currentUserID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -46,7 +46,7 @@ func (h *RestauranteHandler) List(c *gin.Context) {
 		var r models.Restaurante
 		if err := rows.Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
 			&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Plantilla, &r.Activo, &r.FechaRegistro); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		restaurantes = append(restaurantes, r)
@@ -57,8 +57,7 @@ func (h *RestauranteHandler) List(c *gin.Context) {
 
 func (h *RestauranteHandler) Create(c *gin.Context) {
 	var req crearRestauranteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -77,7 +76,7 @@ func (h *RestauranteHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ese subdominio ya está en uso"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -104,17 +103,16 @@ func (h *RestauranteHandler) Get(c *gin.Context) {
 }
 
 type actualizarRestauranteRequest struct {
-	Nombre     string  `json:"nombre" binding:"required"`
-	Subdominio *string `json:"subdominio"`
-	Slogan     *string `json:"slogan"`
-	Telefono   *string `json:"telefono"`
-	Plantilla  *string `json:"plantilla"`
+	Nombre     string  `json:"nombre" binding:"required,min=2,max=150"`
+	Subdominio *string `json:"subdominio" binding:"omitempty,subdominio"`
+	Slogan     *string `json:"slogan" binding:"omitempty,max=150"`
+	Telefono   *string `json:"telefono" binding:"omitempty,telefono"`
+	Plantilla  *string `json:"plantilla" binding:"omitempty,max=50"`
 }
 
 func (h *RestauranteHandler) Update(c *gin.Context) {
 	var req actualizarRestauranteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -135,7 +133,7 @@ func (h *RestauranteHandler) Update(c *gin.Context) {
 				c.JSON(http.StatusConflict, gin.H{"error": "ese subdominio ya está en uso"})
 				return
 			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 	} else {
@@ -144,7 +142,7 @@ func (h *RestauranteHandler) Update(c *gin.Context) {
 			req.Nombre, req.Slogan, req.Telefono, plantilla, currentRestauranteID(c),
 		)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 	}
@@ -164,7 +162,7 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		idRestaurante,
 	).Scan(&visitas30d, &escaneosQR30d)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -174,7 +172,7 @@ func (h *RestauranteHandler) Dashboard(c *gin.Context) {
 		idRestaurante,
 	).Scan(&agotados)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -252,7 +250,7 @@ func (h *RestauranteHandler) SubirLogo(c *gin.Context) {
 	).Scan(&r.IDRestaurante, &r.IDUsuario, &r.IDTipoRestaurante, &r.Nombre,
 		&r.Subdominio, &r.Slogan, &r.URLLogo, &r.Telefono, &r.ZonaHoraria, &r.Activo, &r.FechaRegistro)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

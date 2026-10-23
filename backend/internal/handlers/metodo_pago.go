@@ -33,7 +33,7 @@ func (h *MetodoPagoHandler) Get(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *MetodoPagoHandler) Get(c *gin.Context) {
 
 type guardarMetodoPagoRequest struct {
 	Tipo    string  `json:"tipo" binding:"required,oneof=tarjeta yape"`
-	Titular *string `json:"titular"`
+	Titular *string `json:"titular" binding:"omitempty,max=150"`
 	TokenID *string `json:"token_id"`
 }
 
@@ -55,8 +55,7 @@ type guardarMetodoPagoRequest struct {
 // que aquí solo se registra el tipo elegido.
 func (h *MetodoPagoHandler) Guardar(c *gin.Context) {
 	var req guardarMetodoPagoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -79,7 +78,7 @@ func (h *MetodoPagoHandler) Guardar(c *gin.Context) {
 			 WHERE r.id_restaurante = $1`,
 			idRestaurante,
 		).Scan(&correo, &nombre, &telefono); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		tel := ""
@@ -123,7 +122,7 @@ func (h *MetodoPagoHandler) Guardar(c *gin.Context) {
 
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer tx.Rollback(ctx)
@@ -141,7 +140,7 @@ func (h *MetodoPagoHandler) Guardar(c *gin.Context) {
 		idRestaurante, req.Tipo, req.Titular, marca, ultimos4, customerID, cardID,
 	).Scan(&m.IDRestaurante, &m.Tipo, &m.Titular, &m.Marca, &m.Ultimos4, &m.Vencimiento, &m.ActualizadoEn)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -152,12 +151,12 @@ func (h *MetodoPagoHandler) Guardar(c *gin.Context) {
 		"UPDATE suscripcion SET metodo_pago = $1 WHERE id_restaurante = $2 AND estado = 'activa'",
 		req.Tipo, idRestaurante,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 

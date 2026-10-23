@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
+import { LIMITES, primerError, validarImagen, validarPrecio, validarTexto } from '../lib/validaciones'
 
 function SearchIcon() {
   return (
@@ -54,6 +55,11 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    const errorImagen = validarImagen(file)
+    if (errorImagen) {
+      setError(errorImagen)
+      return
+    }
     setUploading(true)
     setError('')
     try {
@@ -74,12 +80,21 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    const msg = primerError(
+      validarTexto(form.nombre, { etiqueta: 'El nombre del producto' }),
+      validarTexto(form.descripcion, { etiqueta: 'La descripción', min: 0, max: LIMITES.descripcion, obligatorio: false }),
+      validarPrecio(form.precio),
+    )
+    if (msg) {
+      setError(msg)
+      return
+    }
     setError('')
     setSaving(true)
     try {
       await onSave({
-        nombre: form.nombre,
-        descripcion: form.descripcion || null,
+        nombre: form.nombre.trim(),
+        descripcion: (form.descripcion ?? '').trim() || null,
         precio: Number(form.precio),
         id_categoria: form.id_categoria ? Number(form.id_categoria) : null,
         url_imagen: form.url_imagen || null,
@@ -126,6 +141,7 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
             <input
               type="text"
               required
+              maxLength={LIMITES.nombre}
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
               className="h-11 w-full rounded-[9px] border border-[#E2E8F0] px-3.5 text-sm outline-none focus:border-orange"
@@ -137,8 +153,12 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
               value={form.descripcion}
               onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               rows={2}
+              maxLength={LIMITES.descripcion}
               className="w-full rounded-[9px] border border-[#E2E8F0] px-3.5 py-2 text-sm outline-none focus:border-orange"
             />
+            <p className="mt-1 text-right text-[11px] text-[#8A94A6]">
+              {(form.descripcion ?? '').length}/{LIMITES.descripcion}
+            </p>
           </div>
           <div className="flex gap-3.5">
             <div className="flex-1">
@@ -146,7 +166,8 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
               <input
                 type="number"
                 step="0.01"
-                min="0"
+                min={LIMITES.precioMin}
+                max={LIMITES.precioMax}
                 required
                 value={form.precio}
                 onChange={(e) => setForm({ ...form, precio: e.target.value })}
@@ -204,6 +225,11 @@ function CategoriaModal({ categorias, idRestaurante, onClose, onChange }) {
   const crear = async (event) => {
     event.preventDefault()
     if (!nombreNuevo.trim()) return
+    const msg = validarTexto(nombreNuevo, { etiqueta: 'El nombre de la categoría', max: LIMITES.nombreCorto })
+    if (msg) {
+      setError(msg)
+      return
+    }
     setError('')
     setCreando(true)
     try {
@@ -224,6 +250,11 @@ function CategoriaModal({ categorias, idRestaurante, onClose, onChange }) {
     const nombre = editNombre.trim()
     setEditId(null)
     if (!nombre || nombre === cat.nombre) return
+    const msg = validarTexto(nombre, { etiqueta: 'El nombre de la categoría', max: LIMITES.nombreCorto })
+    if (msg) {
+      setError(msg)
+      return
+    }
     setError('')
     try {
       await apiClient.put(`/restaurantes/${idRestaurante}/categorias/${cat.id_categoria}`, {

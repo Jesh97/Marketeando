@@ -4,6 +4,7 @@ import logoMark from '../assets/logo-mark.png'
 import cevichePreview from '../assets/ceviche_onboarding.jpg'
 import apiClient from '../api/client'
 import { useRestaurante } from '../context/RestauranteContext'
+import { LIMITES, primerError, validarImagen, validarPrecio, validarTexto } from '../lib/validaciones'
 
 function Onboarding() {
   const [step, setStep] = useState(1)
@@ -40,6 +41,12 @@ function Onboarding() {
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const errorImagen = validarImagen(file)
+    if (errorImagen) {
+      setStep1Error(errorImagen)
+      return
+    }
+    setStep1Error('')
     setLogoFile(file)
     setLogoPreview(URL.createObjectURL(file))
   }
@@ -60,13 +67,22 @@ function Onboarding() {
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const errorImagen = validarImagen(file)
+    if (errorImagen) {
+      setError(errorImagen)
+      return
+    }
+    setError('')
     setDishImageFile(file)
     setDishImagePreview(URL.createObjectURL(file))
   }
 
-  const subdomain = (restaurantName.trim() || 'turestaurante')
+  // Debe cumplir el formato de subdominio del backend: de 3 a 40 caracteres.
+  const subdomainBase = (restaurantName.trim() || 'turestaurante')
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '') || 'menu'
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 40)
+  const subdomain = subdomainBase.length >= 3 ? subdomainBase : `${subdomainBase}menu`
 
   const getPhoneHeaderStyle = () => {
     if (template === 'andino') return { background: '#1F2740', color: '#FFF8EC' }
@@ -82,8 +98,9 @@ function Onboarding() {
 
   // Paso 1 → guarda nombre y subdominio del restaurante en la BD
   const handleSaveStep1 = async () => {
-    if (!restaurantName.trim()) {
-      setStep1Error('El nombre del local es obligatorio.')
+    const errorNombre = validarTexto(restaurantName, { etiqueta: 'El nombre del local' })
+    if (errorNombre) {
+      setStep1Error(errorNombre)
       return
     }
     if (horarioDesde >= horarioHasta) {
@@ -114,8 +131,7 @@ function Onboarding() {
       await refresh()
       setStep(2)
     } catch (err) {
-      const msg = err?.response?.data?.error || ''
-      setStep1Error(msg.includes('subdominio') ? 'Ese subdominio ya está en uso, prueba otro nombre.' : 'Error al guardar. Intenta de nuevo.')
+      setStep1Error(err?.response?.data?.error || 'Error al guardar. Intenta de nuevo.')
     } finally {
       setSavingStep1(false)
     }
@@ -123,17 +139,13 @@ function Onboarding() {
 
   // Paso 3 → crea local (con horario) + producto estrella
   const handleSaveDish = async () => {
-    if (!dishName.trim() || !dishPrice) {
-      setError('Ingresa al menos el nombre y el precio.')
-      return
-    }
-    const precioNum = parseFloat(dishPrice)
-    if (isNaN(precioNum) || precioNum < 1) {
-      setError('El precio debe ser al menos S/ 1.00.')
-      return
-    }
-    if (!/^\d+(\.\d{1,2})?$/.test(dishPrice.trim())) {
-      setError('El precio puede tener máximo 2 decimales.')
+    const msg = primerError(
+      validarTexto(dishName, { etiqueta: 'El nombre del plato' }),
+      validarTexto(dishDesc, { etiqueta: 'La descripción', min: 0, max: LIMITES.descripcion, obligatorio: false }),
+      validarPrecio(dishPrice),
+    )
+    if (msg) {
+      setError(msg)
       return
     }
     if (!restaurante?.id_restaurante) {
@@ -325,7 +337,7 @@ function Onboarding() {
                         id="restaurant-name"
                         type="text"
                         value={restaurantName}
-                        onChange={(e) => setRestaurantName(e.target.value)}
+                        onChange={(e) => setRestaurantName(e.target.value)} maxLength={LIMITES.nombre}
                         placeholder="Ej. La Mar Cevichería, Don Belisario"
                         className="w-full h-12 pl-12 pr-4 rounded-full bg-cream-base border border-border-warm text-brown-deep placeholder:text-brown-body/40 shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-action/30"
                       />
@@ -655,7 +667,7 @@ function Onboarding() {
                       id="dish-name"
                       type="text"
                       value={dishName}
-                      onChange={(e) => setDishName(e.target.value)}
+                      onChange={(e) => setDishName(e.target.value)} maxLength={LIMITES.nombre}
                       placeholder="Ej. Ceviche Mixto Carretillero"
                       className="w-full h-12 px-4 rounded-full bg-cream-base border border-border-warm text-brown-deep shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-action/30"
                     />
@@ -702,7 +714,7 @@ function Onboarding() {
                     <textarea
                       id="dish-desc"
                       value={dishDesc}
-                      onChange={(e) => setDishDesc(e.target.value)}
+                      onChange={(e) => setDishDesc(e.target.value)} maxLength={LIMITES.descripcion}
                       placeholder="Describe el plato, texturas o acompañamientos..."
                       rows={3}
                       className="w-full p-4 rounded-2xl bg-cream-base border border-border-warm text-brown-deep text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-action/30 resize-none"

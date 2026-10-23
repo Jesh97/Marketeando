@@ -1,6 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
-import Checkout from './pages/Checkout'
 import Dashboard from './pages/Dashboard'
 import DashboardEmpty from './pages/DashboardEmpty'
 import Editor from './pages/Editor'
@@ -21,7 +20,9 @@ function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/checkout" element={<Checkout />} />
+      {/* El pago de planes vive en /subscription (Yape); se mantiene la ruta
+          por si quedó algún enlace viejo. */}
+      <Route path="/checkout" element={<Navigate to="/subscription" replace />} />
       <Route path="/menu/:slug" element={<PublicMenu />} />
       <Route path="/menu/:slug/:local_slug" element={<PublicMenu />} />
       <Route path="/status" element={<Home />} />

@@ -26,7 +26,7 @@ func (h *CategoriaHandler) List(c *gin.Context) {
 		currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -35,7 +35,7 @@ func (h *CategoriaHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var cat models.Categoria
 		if err := rows.Scan(&cat.IDCategoria, &cat.IDRestaurante, &cat.Nombre, &cat.Orden, &cat.Activo); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		categorias = append(categorias, cat)
@@ -45,14 +45,13 @@ func (h *CategoriaHandler) List(c *gin.Context) {
 }
 
 type categoriaRequest struct {
-	Nombre string `json:"nombre" binding:"required"`
+	Nombre string `json:"nombre" binding:"required,min=2,max=100"`
 	Orden  int    `json:"orden"`
 }
 
 func (h *CategoriaHandler) Create(c *gin.Context) {
 	var req categoriaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -68,7 +67,7 @@ func (h *CategoriaHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ya existe una categoría con ese nombre"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -83,8 +82,7 @@ func (h *CategoriaHandler) Update(c *gin.Context) {
 	}
 
 	var req categoriaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -98,7 +96,7 @@ func (h *CategoriaHandler) Update(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "ya existe una categoría con ese nombre"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {
@@ -122,7 +120,7 @@ func (h *CategoriaHandler) Delete(c *gin.Context) {
 		idCategoria, currentRestauranteID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {

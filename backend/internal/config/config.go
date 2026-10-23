@@ -15,6 +15,11 @@ type Config struct {
 	CloudinaryCloudName   string
 	CloudinaryAPIKey      string
 	CloudinaryAPISecret   string
+	// Cobro con Yape personal (ver handlers/pago_yape.go).
+	YapeNumero            string
+	YapeTitular           string
+	YapeQRURL             string
+	YapeWebhookSecret     string
 }
 
 func Load() Config {
@@ -29,6 +34,10 @@ func Load() Config {
 		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
+		YapeNumero:          getEnv("YAPE_NUMERO", ""),
+		YapeTitular:         getEnv("YAPE_TITULAR", ""),
+		YapeQRURL:           getEnv("YAPE_QR_URL", "/yape-qr.png"),
+		YapeWebhookSecret:   getEnv("YAPE_WEBHOOK_SECRET", ""),
 	}
 }
 

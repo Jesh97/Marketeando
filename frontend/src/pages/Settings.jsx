@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
+import { LIMITES, validarImagen, validarTelefono, validarTexto } from '../lib/validaciones'
 
-const MAX_SLOGAN = 150
+const MAX_SLOGAN = LIMITES.slogan
 
 function iniciales(nombre) {
   return (nombre || 'R')
@@ -111,8 +112,8 @@ function Settings() {
   const hayCambios =
     form.nombre !== original.nombre || form.slogan !== original.slogan || form.telefono !== original.telefono
 
-  const errorNombre = form.nombre.trim() ? '' : 'El nombre es obligatorio.'
-  const errorTelefono = form.telefono && !/^\d{9}$/.test(form.telefono) ? 'Debe tener 9 dígitos.' : ''
+  const errorNombre = validarTexto(form.nombre, { etiqueta: 'El nombre' })
+  const errorTelefono = validarTelefono(form.telefono)
   const puedeGuardar = Boolean(restaurante) && hayCambios && !errorNombre && !errorTelefono && !guardando
 
   const enlacePublico = restaurante?.subdominio ? `${window.location.origin}/menu/${restaurante.subdominio}` : ''
@@ -126,8 +127,9 @@ function Settings() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !restaurante) return
-    if (file.size > 2 * 1024 * 1024) {
-      setError('El logo supera los 2MB.')
+    const errorImagen = validarImagen(file)
+    if (errorImagen) {
+      setError(errorImagen)
       return
     }
     setError('')
@@ -188,7 +190,7 @@ function Settings() {
             <h2 className="text-base font-bold text-navy">Perfil del restaurante</h2>
           </div>
 
-          <Seccion titulo="Logo" descripcion="Se guarda al instante. PNG, JPG o WebP, cuadrado, máximo 2MB.">
+          <Seccion titulo="Logo" descripcion="Se guarda al instante. PNG, JPG o WebP, cuadrado, máximo 5 MB.">
             <div className="flex items-center gap-4">
               <Logo
                 url={restaurante?.url_logo}
@@ -240,7 +242,7 @@ function Settings() {
           </Seccion>
 
           <Seccion titulo="Contacto" descripcion="Para que tus clientes puedan comunicarse contigo.">
-            <Campo label="Teléfono" error={errorTelefono} ayuda="Celular de 9 dígitos.">
+            <Campo label="Teléfono" error={errorTelefono} ayuda="Celular de 9 dígitos que empieza con 9.">
               <div className="flex">
                 <span className="flex h-11 items-center rounded-l-[9px] border border-r-0 border-[#E2E8F0] bg-[#F6F8FC] px-3 text-sm font-semibold text-[#4A5568]">
                   +51

@@ -5,10 +5,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"marketeando/backend/internal/auth"
+	"marketeando/backend/internal/config"
 	"marketeando/backend/internal/handlers"
 )
 
-func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir string) {
+func Register(router *gin.Engine, db *pgxpool.Pool, cfg config.Config) {
+	jwtSecret, uploadDir := cfg.JWTSecret, cfg.UploadDir
+
 	campaignHandler := handlers.NewCampaignHandler(db)
 	authHandler := handlers.NewAuthHandler(db, jwtSecret)
 	restauranteHandler := handlers.NewRestauranteHandler(db, uploadDir)
@@ -23,6 +26,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 	culqiWebhookHandler := handlers.NewCulqiWebhookHandler(db)
 	qrPersonalizacionHandler := handlers.NewQRPersonalizacionHandler(db, uploadDir)
 	localHandler := handlers.NewLocalHandler(db)
+	pagoYapeHandler := handlers.NewPagoYapeHandler(db, cfg.YapeNumero, cfg.YapeTitular, cfg.YapeQRURL, cfg.YapeWebhookSecret)
 
 	api := router.Group("/api")
 	{
@@ -47,6 +51,9 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 		// Notificaciones de Culqi: no llevan nuestro JWT, solo se puede
 		// confiar en ellas re-consultando el cargo contra la API de Culqi.
 		api.POST("/webhooks/culqi", culqiWebhookHandler.Handle)
+		// Notificaciones de Yape reenviadas por el script del celular que
+		// recibe los pagos; se autentican con el header X-Yape-Secret.
+		api.POST("/webhooks/yape", pagoYapeHandler.Webhook)
 
 		// --- Requiere sesión (Authorization: Bearer <token>) ---
 		protected := api.Group("")
@@ -103,6 +110,9 @@ func Register(router *gin.Engine, db *pgxpool.Pool, jwtSecret string, uploadDir 
 					suscripcion.GET("", suscripcionHandler.Get)
 					suscripcion.POST("", suscripcionHandler.Suscribir)
 					suscripcion.GET("/facturas", suscripcionHandler.Facturas)
+					suscripcion.POST("/yape", pagoYapeHandler.Iniciar)
+					suscripcion.GET("/yape/:id_pago", pagoYapeHandler.Estado)
+					suscripcion.POST("/yape/:id_pago/reclamar", pagoYapeHandler.Reclamar)
 				}
 
 				// Personalizar QR: solo plan Enterprise activo (ver RequirePlan).

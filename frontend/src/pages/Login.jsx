@@ -5,6 +5,7 @@ import loginScreen from '../assets/login_screen.png'
 import logoMark from '../assets/logo-mark.png'
 import { useAuth } from '../context/AuthContext'
 import { useRestaurante } from '../context/RestauranteContext'
+import { primerError, validarContrasena, validarCorreo, validarTexto } from '../lib/validaciones'
 
 function GoogleIcon() {
   return (
@@ -48,6 +49,17 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    if (!isLogin) {
+      const msg = primerError(
+        validarTexto(nombre, { etiqueta: 'El nombre' }),
+        validarCorreo(correo),
+        validarContrasena(contrasena),
+      )
+      if (msg) {
+        setError(msg)
+        return
+      }
+    }
     setLoading(true)
     try {
       if (isLogin) {
@@ -198,6 +210,7 @@ export default function Login() {
                         value={nombre}
                         onChange={(e) => setNombre(e.target.value)}
                         required
+                        maxLength={150}
                         placeholder="Tu nombre completo"
                         className="w-full h-[50px] pl-11 pr-4 rounded-full bg-cream-base border border-border-warm text-brown-deep text-sm placeholder:text-brown-body/45 focus:outline-none focus:border-orange-action focus:ring-2 focus:ring-orange-action/20 transition-all"
                       />
@@ -218,6 +231,7 @@ export default function Login() {
                       value={correo}
                       onChange={(e) => setCorreo(e.target.value)}
                       required
+                      maxLength={150}
                       placeholder="ejemplo@turestaurante.com"
                       className="w-full h-[50px] pl-11 pr-4 rounded-full bg-cream-base border border-border-warm text-brown-deep text-sm placeholder:text-brown-body/45 focus:outline-none focus:border-orange-action focus:ring-2 focus:ring-orange-action/20 transition-all"
                     />
@@ -260,7 +274,7 @@ export default function Login() {
                     </button>
                   </div>
                   {!isLogin && (
-                    <p className="pl-1 text-xs text-brown-body/60">Mínimo 8 caracteres.</p>
+                    <p className="pl-1 text-xs text-brown-body/60">Mínimo 8 caracteres, con al menos una letra y un número.</p>
                   )}
                 </div>
 

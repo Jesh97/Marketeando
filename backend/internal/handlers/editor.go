@@ -25,7 +25,7 @@ func NewEditorHandler(db *pgxpool.Pool, uploadDir string) *EditorHandler {
 	return &EditorHandler{DB: db, UploadDir: uploadDir}
 }
 
-const maxUploadBytes = 10 << 20 // 10 MB
+const maxUploadBytes = 5 << 20 // 5 MB
 
 // extensionesPermitidas mapea el content-type REAL del archivo (detectado por
 // contenido, nunca por el nombre que manda el cliente) a una extensión seguro
@@ -80,7 +80,7 @@ func (h *EditorHandler) List(c *gin.Context) {
 		)
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -89,7 +89,7 @@ func (h *EditorHandler) List(c *gin.Context) {
 	for rows.Next() {
 		var d models.EditorDocumentSummary
 		if err := rows.Scan(&d.ID, &d.Title, &d.DataJSON, &d.CreatedAt, &d.UpdatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		documents = append(documents, d)
@@ -119,7 +119,7 @@ func (h *EditorHandler) Get(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *EditorHandler) Get(c *gin.Context) {
 type saveDocumentRequest struct {
 	ID          *int            `json:"id"`
 	IDMenu      *int            `json:"id_menu"`
-	Title       string          `json:"title" binding:"required"`
+	Title       string          `json:"title" binding:"required,max=150"`
 	DataJSON    json.RawMessage `json:"data_json" binding:"required"`
 	HTMLContent string          `json:"html_content"`
 }
@@ -139,8 +139,7 @@ type saveDocumentRequest struct {
 // servidor: nunca se confía en lo que compiló el cliente.
 func (h *EditorHandler) Save(c *gin.Context) {
 	var req saveDocumentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !leerJSON(c, &req) {
 		return
 	}
 
@@ -158,7 +157,7 @@ func (h *EditorHandler) Save(c *gin.Context) {
 			idUsuario, req.IDMenu, req.Title, req.DataJSON, cleanHTML,
 		).Scan(&d.ID, &d.IDUsuario, &d.IDMenu, &d.Title, &d.DataJSON, &d.HTMLContent, &d.CreatedAt, &d.UpdatedAt)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responderError(c, err)
 			return
 		}
 		c.JSON(http.StatusCreated, d)
@@ -176,7 +175,7 @@ func (h *EditorHandler) Save(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 
@@ -195,7 +194,7 @@ func (h *EditorHandler) Delete(c *gin.Context) {
 		"DELETE FROM editor_documents WHERE id = $1 AND id_usuario = $2", id, currentUserID(c),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		responderError(c, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import logoMark from '../assets/logo-mark.png'
 import DisenoEscalado from '../components/DisenoEscalado'
@@ -171,6 +171,9 @@ function MarcaAgua({ paleta, slug }) {
 
 function PublicMenu() {
   const { slug, local_slug } = useParams()
+  // Los QR llevan ?origen=qr: se reenvía al backend para contar el escaneo.
+  const [searchParams] = useSearchParams()
+  const origen = searchParams.get('origen')
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [active, setActive] = useState(null)
@@ -180,14 +183,14 @@ function PublicMenu() {
       ? `/public/menu/${slug}/${local_slug}`
       : `/public/menu/${slug}`
     apiClient
-      .get(url)
+      .get(url, { params: origen ? { origen } : undefined })
       .then(({ data }) => {
         setData(data)
         const primeraCategoria = data.productos.find((p) => p.categoria)?.categoria
         setActive(primeraCategoria ?? 'Otros')
       })
       .catch((err) => setError(err.response?.data?.error ?? 'No se pudo cargar el menú.'))
-  }, [slug, local_slug])
+  }, [slug, local_slug, origen])
 
   const disenoHtml = useMemo(() => {
     const html = data?.contenido?.diseno_html

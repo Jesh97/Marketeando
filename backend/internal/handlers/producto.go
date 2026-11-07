@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"marketeando/backend/internal/models"
@@ -74,18 +76,48 @@ type productoRequest struct {
 	URLImagen   *string `json:"url_imagen" binding:"omitempty,url,max=255"`
 }
 
+// Create crea un plato respetando el max_producto del plan activo. Los platos
+// eliminados (activo = false) no cuentan, así que borrar uno libera su cupo.
 func (h *ProductoHandler) Create(c *gin.Context) {
 	var req productoRequest
 	if !leerJSON(c, &req) {
 		return
 	}
 
+	ctx := c.Request.Context()
+	idRestaurante := currentRestauranteID(c)
+
+	var maxProducto, totalPlatos int
+	err := h.DB.QueryRow(ctx,
+		`SELECT v.max_producto,
+		        (SELECT count(*) FROM producto p WHERE p.id_restaurante = v.id_restaurante AND p.activo)
+		 FROM v_plan_restaurante v WHERE v.id_restaurante = $1`,
+		idRestaurante,
+	).Scan(&maxProducto, &totalPlatos)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "este restaurante no tiene una suscripción activa"})
+		return
+	}
+	if err != nil {
+		responderError(c, err)
+		return
+	}
+
+	if totalPlatos >= maxProducto {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":        "tu plan actual no permite agregar más platos",
+			"codigo":       "limite_platos",
+			"max_producto": maxProducto,
+		})
+		return
+	}
+
 	var p models.Producto
-	err := scanProducto(h.DB.QueryRow(
-		c.Request.Context(),
+	err = scanProducto(h.DB.QueryRow(
+		ctx,
 		`INSERT INTO producto (id_restaurante, id_categoria, nombre, descripcion, precio, url_imagen)
 		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING `+productoColumns,
-		currentRestauranteID(c), req.IDCategoria, req.Nombre, req.Descripcion, req.Precio, req.URLImagen,
+		idRestaurante, req.IDCategoria, req.Nombre, req.Descripcion, req.Precio, req.URLImagen,
 	), &p)
 	if err != nil {
 		responderError(c, err)

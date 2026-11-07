@@ -21,7 +21,7 @@ func NewPlanHandler(db *pgxpool.Pool) *PlanHandler {
 func (h *PlanHandler) List(c *gin.Context) {
 	rows, err := h.DB.Query(
 		c.Request.Context(),
-		"SELECT id_plan, nombre, precio, max_menu, max_local, activo FROM plan WHERE activo ORDER BY precio",
+		"SELECT id_plan, nombre, precio, max_menu, max_local, max_producto, activo FROM plan WHERE activo ORDER BY precio",
 	)
 	if err != nil {
 		responderError(c, err)
@@ -32,7 +32,7 @@ func (h *PlanHandler) List(c *gin.Context) {
 	planes := []models.Plan{}
 	for rows.Next() {
 		var p models.Plan
-		if err := rows.Scan(&p.IDPlan, &p.Nombre, &p.Precio, &p.MaxMenu, &p.MaxLocal, &p.Activo); err != nil {
+		if err := rows.Scan(&p.IDPlan, &p.Nombre, &p.Precio, &p.MaxMenu, &p.MaxLocal, &p.MaxProducto, &p.Activo); err != nil {
 			responderError(c, err)
 			return
 		}

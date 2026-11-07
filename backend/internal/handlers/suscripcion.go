@@ -27,13 +27,13 @@ func (h *SuscripcionHandler) Get(c *gin.Context) {
 	var s models.Suscripcion
 	err := h.DB.QueryRow(
 		c.Request.Context(),
-		`SELECT s.id_suscripcion, s.id_restaurante, s.id_plan, p.nombre, s.metodo_pago,
+		`SELECT s.id_suscripcion, s.id_restaurante, s.id_plan, p.nombre, p.max_producto, s.metodo_pago,
 		        s.estado, s.fecha_inicio, s.fecha_fin, s.renueva_en
 		 FROM suscripcion s
 		 JOIN plan p ON p.id_plan = s.id_plan
 		 WHERE s.id_restaurante = $1 AND s.estado = 'activa'`,
 		currentRestauranteID(c),
-	).Scan(&s.IDSuscripcion, &s.IDRestaurante, &s.IDPlan, &s.Plan, &s.MetodoPago,
+	).Scan(&s.IDSuscripcion, &s.IDRestaurante, &s.IDPlan, &s.Plan, &s.MaxProducto, &s.MetodoPago,
 		&s.Estado, &s.FechaInicio, &s.FechaFin, &s.RenuevaEn)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "este restaurante no tiene una suscripción activa"})

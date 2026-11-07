@@ -454,7 +454,8 @@ function Subscription() {
               <p className="my-1.5 text-2xl font-extrabold text-navy">{precioLabel(plan.precio)}</p>
               <p className="mb-4 text-xs text-[#8A94A6]">
                 Hasta {plan.max_menu} menú{plan.max_menu === 1 ? '' : 's'} · {plan.max_local} local
-                {plan.max_local === 1 ? '' : 'es'}
+                {plan.max_local === 1 ? '' : 'es'} ·{' '}
+                {plan.max_producto >= 9999 ? 'platos ilimitados' : `hasta ${plan.max_producto} platos`}
               </p>
               <button
                 type="button"

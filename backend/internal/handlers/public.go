@@ -28,6 +28,26 @@ func (h *PublicHandler) MenuPorLocalSlug(c *gin.Context) {
 	h.resolverMenu(c, c.Param("subdominio"), c.Param("local_slug"))
 }
 
+// ClicMarcaAgua registra un clic en el enlace de la marca de agua de una carta
+// del plan gratuito (métrica "Tráfico por marca de agua" del plan de acción).
+func (h *PublicHandler) ClicMarcaAgua(c *gin.Context) {
+	tag, err := h.DB.Exec(c.Request.Context(),
+		`INSERT INTO clic_marca_agua (id_restaurante)
+		 SELECT id_restaurante FROM restaurante WHERE subdominio = $1 AND activo`,
+		c.Param("subdominio"),
+	)
+	if err != nil {
+		responderError(c, err)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "restaurante no encontrado"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 func (h *PublicHandler) resolverMenu(c *gin.Context, subdominio, localSlug string) {
 	ctx := c.Request.Context()
 

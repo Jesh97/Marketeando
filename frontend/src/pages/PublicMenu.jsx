@@ -140,19 +140,30 @@ function DishCard({ dish, paleta, mostrarFotos, mostrarPrecios }) {
 // Marca de agua de las cartas del plan gratuito (el backend manda
 // marca_agua=true): una franja al pie de la carta que también sale al
 // imprimirla o guardarla como PDF. Los planes pagados se publican sin ella.
-function MarcaAgua({ paleta }) {
+function MarcaAgua({ paleta, slug }) {
+  // No se espera la respuesta: si falla el conteo, el enlace igual debe abrir.
+  const registrarClic = () => {
+    apiClient.post(`/public/menu/${slug}/clic-marca-agua`).catch(() => {})
+  }
+
   return (
     <div
       className="flex items-center justify-center gap-2.5 px-6 py-4 print:py-3"
       style={{ background: paleta.footer, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
     >
       <img src={logoMark} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
-      <p className="text-xs" style={{ color: paleta.headerSub }}>
-        Carta creada con{' '}
-        <Link to="/" className="font-bold hover:underline" style={{ color: paleta.headerText }}>
-          Karta Kamay
+      {/* Color fijo: el pie es oscuro en todas las plantillas, pero headerText
+          de costero y minimal es oscuro también y dejaba el enlace invisible. */}
+      <p className="text-xs" style={{ color: '#FFF8EC' }}>
+        Diseñado con Karta Kamay ·{' '}
+        <Link
+          to="/"
+          onClick={registrarClic}
+          className="font-bold underline"
+          style={{ color: '#FFF8EC' }}
+        >
+          Crea tu menú gratis
         </Link>
-        <span className="hidden sm:inline"> · Crea la tuya gratis en kartakamay.app</span>
       </p>
     </div>
   )
@@ -211,7 +222,7 @@ function PublicMenu() {
       <div className="min-h-svh" style={{ background: paleta.fondoPagina }}>
         <div className="mx-auto w-full max-w-2xl">
           <DisenoEscalado html={disenoHtml} canvas={disenoCanvas} />
-          {data.marca_agua && <MarcaAgua paleta={paleta} />}
+          {data.marca_agua && <MarcaAgua paleta={paleta} slug={slug} />}
         </div>
       </div>
     )
@@ -310,7 +321,7 @@ function PublicMenu() {
         )}
       </div>
 
-      {data.marca_agua && <MarcaAgua paleta={paleta} />}
+      {data.marca_agua && <MarcaAgua paleta={paleta} slug={slug} />}
     </div>
   )
 }

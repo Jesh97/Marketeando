@@ -47,6 +47,7 @@ func Register(router *gin.Engine, db *pgxpool.Pool, cfg config.Config) {
 		api.GET("/planes", planHandler.List)
 		api.GET("/public/menu/:subdominio", publicHandler.MenuPorSubdominio)
 		api.GET("/public/menu/:subdominio/:local_slug", publicHandler.MenuPorLocalSlug)
+		api.POST("/public/menu/:subdominio/clic-marca-agua", publicHandler.ClicMarcaAgua)
 
 		// Notificaciones de Culqi: no llevan nuestro JWT, solo se puede
 		// confiar en ellas re-consultando el cargo contra la API de Culqi.

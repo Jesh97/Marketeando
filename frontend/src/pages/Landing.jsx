@@ -665,7 +665,7 @@ function Pricing() {
                 <p className="mt-2 text-xs text-brown-body">Perfecto para empezar y probar la plataforma.</p>
                 <div className="my-6 border-t border-border-warm/60" />
                 <ul className="space-y-3.5 text-sm text-brown-body">
-                  {['1 Menú Digital', 'Generación de QR básica', 'Personalización limitada'].map((item) => (
+                  {['1 Menú Digital', `Hasta ${plan('Básico')?.max_producto ?? 15} platos`, 'Generación de QR básica', 'Personalización limitada'].map((item) => (
                     <li key={item} className="flex items-center gap-2.5">
                       <span className="material-symbols-outlined text-orange-action text-[18px]">check</span>
                       <span>{item}</span>
@@ -694,6 +694,7 @@ function Pricing() {
                 <ul className="space-y-3.5 text-sm text-brown-body">
                   {[
                     { text: 'Menús ilimitados', bold: true },
+                    { text: 'Platos ilimitados', bold: true },
                     { text: 'QR Personalizado con logo', bold: true },
                     { text: 'Subdominio personalizado', bold: true },
                     { text: 'Soporte prioritario 24/7 vía WhatsApp', bold: false },
@@ -723,6 +724,7 @@ function Pricing() {
                 <ul className="space-y-3.5 text-sm text-brown-body">
                   {[
                     'Múltiples locales y sedes',
+                    'Platos ilimitados',
                     'Soporte prioritario 24/7',
                     'Analíticas avanzadas y rotación',
                     'Integración con punto de venta (POS)',

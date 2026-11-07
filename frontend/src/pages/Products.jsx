@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import apiClient from '../api/client'
 import DashboardShell from '../components/DashboardShell'
 import { useRestaurante } from '../context/RestauranteContext'
@@ -42,6 +43,9 @@ function statusFor(product) {
   if (product.activo) return { label: 'Activo', bg: '#DCFCE7', text: '#16A34A' }
   return { label: 'Inactivo', bg: '#F1F5F9', text: '#64748B' }
 }
+
+// Mismo valor que usa la BD para "sin límite" (ver migración 0018).
+const PLATOS_SIN_LIMITE = 9999
 
 const emptyForm = { nombre: '', descripcion: '', precio: '', id_categoria: '', url_imagen: null }
 
@@ -215,6 +219,35 @@ function ProductModal({ categorias, initial, idRestaurante, onClose, onSave }) {
   )
 }
 
+function PaywallModal({ maxProducto, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-bold text-navy">Llegaste al límite de tu plan</h2>
+        <p className="mt-2 text-sm text-[#4A5568]">
+          Tu plan gratuito incluye hasta {maxProducto} platos. Mejora tu plan para agregar platos
+          sin límite y quitar la marca de agua de tu carta.
+        </p>
+        <div className="mt-5 flex justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[9px] border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13.5px] font-semibold text-navy hover:bg-[#F6F8FC]"
+          >
+            Ahora no
+          </button>
+          <Link
+            to="/subscription"
+            className="rounded-[9px] bg-orange px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-orange-dark"
+          >
+            Mejorar plan
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CategoriaModal({ categorias, idRestaurante, onClose, onChange }) {
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [creando, setCreando] = useState(false)
@@ -370,6 +403,8 @@ function Products() {
   const [modal, setModal] = useState(null) // null | 'create' | producto a editar
   const [search, setSearch] = useState('')
   const [showCategorias, setShowCategorias] = useState(false)
+  const [maxProducto, setMaxProducto] = useState(null) // null = aún sin dato; el backend igual lo valida
+  const [showPaywall, setShowPaywall] = useState(false)
 
   const idRestaurante = restaurante?.id_restaurante
 
@@ -389,6 +424,22 @@ function Products() {
 
   useEffect(cargar, [idRestaurante])
 
+  useEffect(() => {
+    if (!idRestaurante) return
+    let cancelled = false
+    apiClient
+      .get(`/restaurantes/${idRestaurante}/suscripcion`)
+      .then(({ data }) => {
+        if (!cancelled) setMaxProducto(data.max_producto ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setMaxProducto(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [idRestaurante])
+
   const categoriaNombre = (idCategoria) =>
     categorias.find((c) => c.id_categoria === idCategoria)?.nombre ?? 'Sin categoría'
 
@@ -407,8 +458,14 @@ function Products() {
       )
       setProductos((prev) => prev.map((p) => (p.id_producto === data.id_producto ? data : p)))
     } else {
-      const { data } = await apiClient.post(`/restaurantes/${idRestaurante}/productos`, payload)
-      setProductos((prev) => [...prev, data])
+      try {
+        const { data } = await apiClient.post(`/restaurantes/${idRestaurante}/productos`, payload)
+        setProductos((prev) => [...prev, data])
+      } catch (err) {
+        if (err.response?.data?.codigo !== 'limite_platos') throw err
+        setMaxProducto(err.response.data.max_producto)
+        setShowPaywall(true)
+      }
     }
   }
 
@@ -424,6 +481,8 @@ function Products() {
 
   const agotadosCount = productos.filter((p) => p.agotado).length
   const activosCount = productos.filter((p) => p.activo).length
+  const planConLimite = maxProducto !== null && maxProducto < PLATOS_SIN_LIMITE
+  const limiteAlcanzado = planConLimite && productos.length >= maxProducto
 
   if (loadingRestaurante || loading) {
     return (
@@ -449,7 +508,7 @@ function Products() {
           </button>
           <button
             type="button"
-            onClick={() => setModal('create')}
+            onClick={() => (limiteAlcanzado ? setShowPaywall(true) : setModal('create'))}
             className="rounded-[9px] bg-orange px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-orange-dark"
           >
             + Nuevo Producto
@@ -458,6 +517,7 @@ function Products() {
       </div>
       <p className="mb-6 text-sm text-[#4A5568]">
         {agotadosCount} platos agotados hoy · {activosCount} productos activos
+        {planConLimite && ` · ${productos.length} de ${maxProducto} platos de tu plan`}
       </p>
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -590,6 +650,8 @@ function Products() {
           onSave={guardarProducto}
         />
       )}
+
+      {showPaywall && <PaywallModal maxProducto={maxProducto} onClose={() => setShowPaywall(false)} />}
 
       {showCategorias && (
         <CategoriaModal

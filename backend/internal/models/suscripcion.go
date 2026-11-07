@@ -7,6 +7,7 @@ type Suscripcion struct {
 	IDRestaurante int        `json:"id_restaurante"`
 	IDPlan        int        `json:"id_plan"`
 	Plan          string     `json:"plan"`
+	MaxProducto   int        `json:"max_producto,omitempty"`
 	MetodoPago    string     `json:"metodo_pago"`
 	Estado        string     `json:"estado"`
 	FechaInicio   time.Time  `json:"fecha_inicio"`
